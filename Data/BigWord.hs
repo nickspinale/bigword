@@ -25,8 +25,8 @@
 -- Fixed size bit vectors using type-level naturals.
 ---------------------------------------------------------
 
-module Data.BigWord where
-    ( 
+module Data.BigWord
+    (
     -- * The 'W' newtype
       W
 
@@ -39,7 +39,7 @@ module Data.BigWord where
     , assembleR
     , disassembleL
     , disassembleR
-    )
+    ) where
 
 import Control.Applicative
 import Data.Bits
@@ -48,14 +48,15 @@ import Data.Function
 import Data.Ix
 import Data.Proxy
 import Data.Monoid
+import Numeric.Mod
 import Data.Traversable
 import Data.Type.Equality
 import GHC.TypeLits
 import Text.Printf
 
 -- | Type representing a sequence of @n@ bits, or a non-negative integer smaller than @2^n@.
-newtype W (n :: Nat) = W { unW :: Mod n }
-    deriving (Eq, Ord, Real, Ix, PrintfArg, Data, Typeable
+newtype W (n :: Nat) = W { unW :: Mod (2 ^ n) }
+    deriving (Eq, Ord, Real, Ix, PrintfArg, Data, Typeable,
               Read, Show, Bounded, Enum, Integral, Num)
 
 -- Original name was BigWord, but since using this module requires more
