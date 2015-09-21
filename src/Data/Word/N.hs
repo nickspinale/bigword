@@ -8,9 +8,11 @@
 {-# LANGUAGE Rank2Types                 #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE MagicHash                  #-}
 
 ---------------------------------------------------------
 -- |
@@ -25,7 +27,7 @@
 -- Fixed size bit vectors using type-level naturals.
 ---------------------------------------------------------
 
-module Data.BigWord
+module Data.Word.N
     (
     -- * The 'W' newtype
       W
@@ -48,16 +50,25 @@ import Data.Function
 import Data.Ix
 import Data.Proxy
 import Data.Monoid
-import Numeric.Mod
 import Data.Traversable
 import Data.Type.Equality
+import GHC.Exts
 import GHC.TypeLits
+import Numeric.Mod
 import Text.Printf
 
 -- | Type representing a sequence of @n@ bits, or a non-negative integer smaller than @2^n@.
 newtype W (n :: Nat) = W { unW :: Mod (2 ^ n) }
-    deriving (Eq, Ord, Real, Ix, PrintfArg, Data, Typeable,
-              Read, Show, Bounded, Enum, Integral, Num)
+    deriving (Eq, Enum, Ord, Ix, PrintfArg, Typeable)
+
+-- I'm still confused about why I need these...
+deriving instance KnownNat (2 ^ n) => Integral (W n)
+deriving instance KnownNat (2 ^ n) => Real (W n)
+deriving instance (Typeable n, Typeable (2 ^ n)) => Data (W n)
+
+deriving instance KnownNat (2 ^ n) => Read (W n)
+deriving instance KnownNat (2 ^ n) => Bounded (W n)
+deriving instance KnownNat (2 ^ n) => Num (W n)
 
 -- Original name was BigWord, but since using this module requires more
 -- explicit type signatures, I decided to use just W. This may be stupid.
@@ -67,26 +78,26 @@ newtype W (n :: Nat) = W { unW :: Mod (2 ^ n) }
 -- INSTANCES
 -------------------------------
 
-instance KnownNat n => Bits (W n) where
-        (.&.) = ((.).(.)) W ((.&.) `on` unW)
-        (.|.) = ((.).(.)) W ((.|.) `on` unW)
-        xor   = ((.).(.)) W (xor   `on` unW)
-        complement = fromInteger . complement . unW
-        shift (W x) i = W $ shift x i `mod` bit (natValInt (Proxy :: Proxy n))
-        rotate x i = let nat = natValInt (Proxy :: Proxy n)
+instance (KnownNat n, KnownNat (2 ^ n)) => Bits (W n) where
+        (.&.) = ((.).(.)) fromInteger ((.&.) `on` toInteger)
+        (.|.) = ((.).(.)) fromInteger ((.|.) `on` toInteger)
+        xor   = ((.).(.)) fromInteger (xor   `on` toInteger)
+        complement = fromInteger . complement . toInteger
+        shift w i = fromInteger $ shift (toInteger w) i
+        rotate w i = let nat = natValInt' (proxy# :: Proxy# n)
                          dist = mod i nat
-                     in shift x dist .|. shift x (nat - dist)
+                     in shift w dist .|. shift w (nat - dist)
         bitSizeMaybe = Just . finiteBitSize
         bitSize = finiteBitSize
         isSigned = const False
-        testBit = testBit . unW
-        bit i = if i < natValInt (Proxy :: Proxy n)
-                then W (bit i)
+        testBit = testBit . toInteger
+        bit i = if i < natValInt' (proxy# :: Proxy# n)
+                then fromInteger (bit i)
                 else 0
-        popCount = popCount . unW
+        popCount = popCount . toInteger
 
-instance KnownNat n => FiniteBits (W n) where
-    finiteBitSize = const $ natValInt (Proxy :: Proxy n)
+instance (KnownNat n, KnownNat (2 ^ n)) => FiniteBits (W n) where
+    finiteBitSize = const $ natValInt' (proxy# :: Proxy# n)
 
 -------------------------------
 -- OPERATIONS
@@ -103,14 +114,17 @@ instance KnownNat n => FiniteBits (W n) where
 -- >      where
 -- >        f = fromIntegral :: Word32 -> W 32
 
-(>+<) :: forall n m o. ( KnownNat m
+(>+<) :: forall n m o. ( KnownNat (2 ^ m)
+                       , KnownNat (2 ^ n)
+                       , KnownNat (2 ^ o)
+                       , KnownNat m
                        , KnownNat n
                        , KnownNat o
                        , o ~ (m + n)
                        , o ~ (n + m)
                        ) => W m -> W n -> W o
 
-(W x) >+< (W y) = fromInteger $ x + shift y (natValInt (Proxy :: Proxy m))
+(W x) >+< (W y) = fromInteger $ toInteger x .|. shift (toInteger y) (natValInt' (proxy# :: Proxy# m))
 
 -- | The inverse of @'>+<'@
 --
@@ -131,11 +145,14 @@ instance KnownNat n => FiniteBits (W n) where
 split :: forall n m o. ( KnownNat m
                        , KnownNat n
                        , KnownNat o
+                       , KnownNat (2 ^ m)
+                       , KnownNat (2 ^ n)
+                       , KnownNat (2 ^ o)
                        , o ~ (m + n)
                        , o ~ (n + m)
                        ) => W o -> (W m, W n)
 
-split (W z) = (fromInteger z, fromInteger $ shiftR z (natValInt (Proxy :: Proxy m)))
+split (W z) = (fromIntegral z, fromInteger $ shiftR (toInteger z) (natValInt' (proxy# :: Proxy# m)))
 
 -------------------------------
 -- UTILITY FUNCTIONS
@@ -151,7 +168,13 @@ split (W z) = (fromInteger z, fromInteger $ shiftR z (natValInt (Proxy :: Proxy 
 -- >    anyWord128LE :: Parser (W 128)
 -- >    anyWord128LE = assembleL $ fmap (fromIntegral :: Word8 -> W 8) anyWord8
 
-assembleL :: (Applicative f, d :|: n) => f (W d) -> f (W n)
+assembleL :: ( Applicative f
+             , d :|: n
+             , KnownNat d
+             , KnownNat n
+             -- , KnownNat (2 ^ d)
+             -- , KnownNat (2 ^ n)
+             ) => f (W d) -> f (W n)
 assembleL = assemble (>+<)
 
 -- | Same as assembleL, but treats the first results a more significant>
@@ -198,6 +221,9 @@ class (KnownNat d, KnownNat n) => d :|: n where
              => ( forall a b c. ( KnownNat a
                                 , KnownNat b
                                 , KnownNat c
+                                , KnownNat (2 ^ a)
+                                , KnownNat (2 ^ b)
+                                , KnownNat (2 ^ c)
                                 , c ~ (a + b)
                                 , c ~ (b + a)
                                 )
@@ -213,6 +239,11 @@ instance KnownNat n => n :|: n where
     disassemble = id
 
 instance {-# OVERLAPPABLE #-} ( KnownNat n
+                              , KnownNat n'
+                              , KnownNat d
+                              , KnownNat (2 ^ n)
+                              , KnownNat (2 ^ n')
+                              , KnownNat (2 ^ d)
                               , d :|: n'
                               , n ~ (d + n')
                               , n ~ (n' + d)
@@ -230,6 +261,5 @@ instance {-# OVERLAPPABLE #-} ( KnownNat n
 -- HELPERS
 -------------------------------
 
-natValInt :: KnownNat n => proxy n -> Int
-natValInt = fromInteger . natVal
-
+natValInt' :: KnownNat n => Proxy# n -> Int
+natValInt' p = fromInteger $ natVal' p
