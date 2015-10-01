@@ -59,7 +59,7 @@ import Text.Printf
 
 -- | Type representing a sequence of @n@ bits, or a non-negative integer smaller than @2^n@.
 newtype W (n :: Nat) = W { unW :: Mod (2 ^ n) }
-    deriving (Eq, Enum, Ord, Ix, PrintfArg, Typeable)
+    deriving (Show, Eq, Enum, Ord, Ix, PrintfArg, Typeable)
 
 -- I'm still confused about why I need these...
 deriving instance KnownNat (2 ^ n) => Integral (W n)
