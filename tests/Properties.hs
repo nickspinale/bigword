@@ -39,6 +39,9 @@ import qualified Data.ByteString.Lazy as LZ
 import GHC.TypeLits
 import Data.Word
 
+-- Most of these properties come from the package 'largeword' (on hackage).
+-- This is because that package and this one expose pretty much the same api.
+
 encode' :: (8 :|: n) => W n -> LZ.ByteString
 encode' = disassembleR (runPut . putWord8 . (fromIntegral :: W 8 -> Word8))
 

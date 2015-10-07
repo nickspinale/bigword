@@ -1,2 +1,2 @@
 # bigword
-Fixed-size bit-vectors, build over the mod-n package
+Fixed-size bit-vectors, built over the mod-n package
