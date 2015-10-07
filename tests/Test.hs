@@ -1,8 +1,11 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DataKinds #-}
 
 module Test where
 
 import Data.Word.N
 
-showBits :: W n -> String
+showBits :: (1 :|: n) => W n -> String
 showBits = disassembleR (show :: W 1 -> String)

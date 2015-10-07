@@ -31,6 +31,7 @@ module Data.Word.N
     (
     -- * The 'W' newtype
       W
+    , (:|:)
 
     -- * Operations
     , (>+<)
@@ -242,18 +243,11 @@ class (KnownNat d, KnownNat n) => d :|: n where
 
     disassemble :: forall m. Monoid m => (W d -> m) -> (W n -> m)
 
-instance Divides (Flag d n) d n => d :|: n where
+instance (eq ~ (d == n), Divides eq d n) => d :|: n where
     assemble = assemble'
     disassemble = disassemble'
 
-data T
-data F
-
-class
-    Flag a a = T
-    Flag a b = F
-
-class (KnownNat d, KnownNat n) => Divides flag d n where
+class (KnownNat d, KnownNat n, eq ~ (d == n)) => Divides (eq :: Bool) (d :: Nat) (n :: Nat) where
 
     assemble' :: forall f. Applicative f
              => ( forall a b c. ( KnownNat a
@@ -273,7 +267,7 @@ class (KnownNat d, KnownNat n) => Divides flag d n where
     disassemble' :: forall m. Monoid m => (W d -> m) -> (W n -> m)
 
 
-instance {-# OVERLAPPING #-} (KnownNat n, KnownNat m, T ~ Flag n m) => Divides T n m where
+instance {-# OVERLAPPING #-} (KnownNat d, KnownNat n, True ~ (d == n), d ~ n) => Divides True d n where
     assemble' _ = id
     disassemble' = id
 
@@ -283,10 +277,11 @@ instance {-# OVERLAPPABLE #-} ( KnownNat n
                               , KnownNat (2 ^ n)
                               , KnownNat (2 ^ n')
                               , KnownNat (2 ^ d)
-                              , Divides (Flag d n') d n'
+                              , Divides (d == n') d n'
+                              , False ~ (d == n)
                               , n ~ (d + n')
                               , n ~ (n' + d)
-                              ) => Divides F d n where
+                              ) => Divides False d n where
 
     assemble' c f = liftA2 c f (assemble' c f)
 
