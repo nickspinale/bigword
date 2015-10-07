@@ -242,9 +242,40 @@ class (KnownNat d, KnownNat n) => d :|: n where
 
     disassemble :: forall m. Monoid m => (W d -> m) -> (W n -> m)
 
-instance {-# OVERLAPPING #-} KnownNat n => n :|: n where
-    assemble _ = id
-    disassemble = id
+instance Divides (Flag d n) d n => d :|: n where
+    assemble = assemble'
+    disassemble = disassemble'
+
+data T
+data F
+
+class
+    Flag a a = T
+    Flag a b = F
+
+class (KnownNat d, KnownNat n) => Divides flag d n where
+
+    assemble' :: forall f. Applicative f
+             => ( forall a b c. ( KnownNat a
+                                , KnownNat b
+                                , KnownNat c
+                                , KnownNat (2 ^ a)
+                                , KnownNat (2 ^ b)
+                                , KnownNat (2 ^ c)
+                                , c ~ (a + b)
+                                , c ~ (b + a)
+                                )
+                => W a -> W b -> W c
+                )
+             -> f (W d)
+             -> f (W n)
+
+    disassemble' :: forall m. Monoid m => (W d -> m) -> (W n -> m)
+
+
+instance {-# OVERLAPPING #-} (KnownNat n, KnownNat m, T ~ Flag n m) => Divides T n m where
+    assemble' _ = id
+    disassemble' = id
 
 instance {-# OVERLAPPABLE #-} ( KnownNat n
                               , KnownNat n'
@@ -252,18 +283,20 @@ instance {-# OVERLAPPABLE #-} ( KnownNat n
                               , KnownNat (2 ^ n)
                               , KnownNat (2 ^ n')
                               , KnownNat (2 ^ d)
-                              , d :|: n'
+                              , Divides (Flag d n') d n'
                               , n ~ (d + n')
                               , n ~ (n' + d)
-                              ) => d :|: n where
+                              ) => Divides F d n where
 
-    assemble c f = liftA2 c f (assemble c f)
+    assemble' c f = liftA2 c f (assemble' c f)
 
-    disassemble f w = f l <> disassemble f r
+    disassemble' f w = f l <> disassemble' f r
       where
         l :: W d
         r :: W n'
         (l, r) = split w
+
+
 
 -------------------------------
 -- HELPERS
