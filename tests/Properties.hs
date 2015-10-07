@@ -40,13 +40,13 @@ import GHC.TypeLits
 import Data.Word
 
 encode' :: (8 :|: n) => W n -> LZ.ByteString
-encode' = disassembleR (runPut . putWord8 . (fromIntegral :: Word8 -> W 8)
+encode' = disassembleR (runPut . putWord8 . (fromIntegral :: W 8 -> Word8))
 
 decode' :: (8 :|: n) => LZ.ByteString -> W n
-decode' = runGet . assembleR ((fromIntegral :: W 8 -> Word8) . getWord8)
+decode' = runGet (assembleR (fmap (fromIntegral :: Word8 -> W 8) getWord8))
 
 instance (8 :|: n) => Arbitrary (W n) where
-   arbitrary = assembleL $ (fromIntegral :: (Word8 -> W 8)) . arbitrary
+   arbitrary = assembleL $ fmap (fromIntegral :: (Word8 -> W 8)) arbitrary
 
 pShiftRightShiftLeft :: W 128 -> Bool
 pShiftRightShiftLeft x = shiftR (shiftL x 1) 1 == x .&. (fromInteger ((2^127) - 1))

@@ -92,8 +92,8 @@ instance (KnownNat n, KnownNat (2 ^ n)) => Bits (W n) where
         complement = fromInteger . complement . toInteger
         shift w i = fromInteger $ shift (toInteger w) i
         rotate w i = let nat = natValInt' (proxy# :: Proxy# n)
-                         dist = mod i nat
-                     in shift w dist .|. shift w (nat - dist)
+                         dist = i `mod` nat
+                     in shift w dist .|. shift w (dist - nat)
         bitSizeMaybe = Just . finiteBitSize
         bitSize = finiteBitSize
         isSigned = const False
