@@ -59,14 +59,13 @@ import Text.Printf
 
 -- | Type representing a sequence of @n@ bits, or a non-negative integer smaller than @2^n@.
 newtype W (n :: Nat) = W { unW :: Mod (2 ^ n) }
-    deriving (Show, Eq, Enum, Ord, Ix, PrintfArg, Typeable)
+    deriving (Eq, Enum, Ord, Ix, PrintfArg, Typeable)
 
--- I'm still confused about why I need these...
+-- I'm still confused about why these need to be standalone...
 deriving instance KnownNat (2 ^ n) => Integral (W n)
 deriving instance KnownNat (2 ^ n) => Real (W n)
 deriving instance (Typeable n, Typeable (2 ^ n)) => Data (W n)
 
-deriving instance KnownNat (2 ^ n) => Read (W n)
 deriving instance KnownNat (2 ^ n) => Bounded (W n)
 deriving instance KnownNat (2 ^ n) => Num (W n)
 
@@ -77,6 +76,12 @@ deriving instance KnownNat (2 ^ n) => Num (W n)
 -------------------------------
 -- INSTANCES
 -------------------------------
+
+instance (KnownNat n, KnownNat (2 ^ n)) => Show (W n) where
+    show = show . unW
+
+instance (KnownNat n, KnownNat (2 ^ n)) => Read (W n) where
+    readsPrec = ((.).(.)) (map $ \(a, str) -> (W a, str)) readsPrec
 
 instance (KnownNat n, KnownNat (2 ^ n)) => Bits (W n) where
         (.&.) = ((.).(.)) fromInteger ((.&.) `on` toInteger)
@@ -103,7 +108,7 @@ instance (KnownNat n, KnownNat (2 ^ n)) => FiniteBits (W n) where
 -- OPERATIONS
 -------------------------------
 
--- | Appends two @'W'@'s, treating the second's bits as more significant.
+-- | Appends two @'W'@'s, treating the first's bits as more significant.
 --
 -- Example usage:
 --
@@ -124,7 +129,7 @@ instance (KnownNat n, KnownNat (2 ^ n)) => FiniteBits (W n) where
                        , o ~ (n + m)
                        ) => W m -> W n -> W o
 
-(W x) >+< (W y) = fromInteger $ toInteger x .|. shift (toInteger y) (natValInt' (proxy# :: Proxy# m))
+(W x) >+< (W y) = fromInteger $ shift (toInteger x) (natValInt' (proxy# :: Proxy# n)) .|. toInteger y
 
 -- | The inverse of @'>+<'@
 --
@@ -152,13 +157,29 @@ split :: forall n m o. ( KnownNat m
                        , o ~ (n + m)
                        ) => W o -> (W m, W n)
 
-split (W z) = (fromIntegral z, fromInteger $ shiftR (toInteger z) (natValInt' (proxy# :: Proxy# m)))
+split (W z) = (fromInteger $ shiftR (toInteger z) (natValInt' (proxy# :: Proxy# n)), fromIntegral z)
 
 -------------------------------
 -- UTILITY FUNCTIONS
 -------------------------------
 
--- | Transforms an applicative action that results in a @'W' d@ to on that results in a @'W' n@, provided that @d|n@ (hence the @:|:@ constraint), treating the first results as less significant.
+-- | Transforms an applicative action that results in a @'W' d@ to on that results in a @'W' n@, provided that @d|n@ (hence the @:|:@ constraint), treating the first results as more significant.
+--
+-- Here's the example above, modified to parse in network-byte order:
+--
+-- >    anyWord128BE :: Parser (W 128)
+-- >    anyWord128BE = assembleR $ fmap (fromIntegral :: Word8 -> W 8) anyWord8
+
+assembleR :: ( Applicative f
+             , d :|: n
+             , KnownNat d
+             , KnownNat n
+             -- , KnownNat (2 ^ d)
+             -- , KnownNat (2 ^ n)
+             ) => f (W d) -> f (W n)
+assembleR = assemble (>+<)
+
+-- | Same as assembleR, but treats the first results as less significant.
 --
 -- Example using attoparsec to parse a little-endian unsigned 128-bit integer:
 --
@@ -168,38 +189,11 @@ split (W z) = (fromIntegral z, fromInteger $ shiftR (toInteger z) (natValInt' (p
 -- >    anyWord128LE :: Parser (W 128)
 -- >    anyWord128LE = assembleL $ fmap (fromIntegral :: Word8 -> W 8) anyWord8
 
-assembleL :: ( Applicative f
-             , d :|: n
-             , KnownNat d
-             , KnownNat n
-             -- , KnownNat (2 ^ d)
-             -- , KnownNat (2 ^ n)
-             ) => f (W d) -> f (W n)
-assembleL = assemble (>+<)
-
--- | Same as assembleL, but treats the first results a more significant>
---
--- Here's the example above, modified to parse in network-byte order:
---
--- >    anyWord128BE :: Parser (W 128)
--- >    anyWord128B  = assembleR $ fmap (fromIntegral :: Word8 -> W 8) anyWord8
-
-assembleR :: (Applicative f, d :|: n) => f (W d) -> f (W n)
-assembleR = assemble (flip (>+<))
+assembleL :: (Applicative f, d :|: n) => f (W d) -> f (W n)
+assembleL = assemble (flip (>+<))
 
 -- | Breaks a @'W' n@ into its constituent @d@-sized chunks, and combines them according to the provided monoid.
---
--- Example using a bytestrings
---
--- >    import Data.ByteString.Builder
--- >
--- >    word128LE :: W 128 -> Builder
--- >    word128LE = disassembleL (word8 . (fromIntegral :: W 8 -> Word8))
-
-disassembleL :: (Monoid m , d :|: n) => (W d -> m) -> (W n -> m)
-disassembleL = disassemble
-
--- | Same as disassembleL, but @mappend@s from right to left.
+--   More significant chunks are combined first.
 --
 -- @disassembleL@'s example adjusted to build in network-byte order:
 --
@@ -209,11 +203,25 @@ disassembleL = disassemble
 -- >    word128BE = disassembleR (word8 . (fromIntegral :: W 8 -> Word8))
 
 disassembleR :: (Monoid m , d :|: n) => (W d -> m) -> (W n -> m)
-disassembleR f = getDual . disassemble (Dual . f)
+disassembleR = disassemble
+
+-- | Same as disassembleL, but combines less significant chunks first.
+--
+-- Example using a bytestrings
+--
+-- >    import Data.ByteString.Builder
+-- >
+-- >    word128LE :: W 128 -> Builder
+-- >    word128LE = disassembleL (word8 . (fromIntegral :: W 8 -> Word8))
+
+disassembleL :: (Monoid m , d :|: n) => (W d -> m) -> (W n -> m)
+disassembleL f = getDual . disassemble (Dual . f)
 
 -------------------------------
 -- :|:
 -------------------------------
+
+-- Reads 'd divides n'.
 
 class (KnownNat d, KnownNat n) => d :|: n where
 
@@ -234,7 +242,7 @@ class (KnownNat d, KnownNat n) => d :|: n where
 
     disassemble :: forall m. Monoid m => (W d -> m) -> (W n -> m)
 
-instance KnownNat n => n :|: n where
+instance {-# OVERLAPPING #-} KnownNat n => n :|: n where
     assemble _ = id
     disassemble = id
 
