@@ -52,6 +52,7 @@ import Data.Proxy
 import Data.Monoid
 import Data.Traversable
 import Data.Type.Equality
+import Data.Type.Bool
 import GHC.Exts
 import GHC.TypeLits
 import Numeric.Mod
@@ -246,7 +247,8 @@ instance {-# OVERLAPPING #-} KnownNat n => n :|: n where
     assemble _ = id
     disassemble = id
 
-instance {-# OVERLAPPABLE #-} ( KnownNat n
+instance {-# OVERLAPPABLE #-} ( (d == n) ~ False
+                              , KnownNat n
                               , KnownNat n'
                               , KnownNat d
                               , KnownNat (2 ^ n)
