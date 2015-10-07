@@ -247,8 +247,7 @@ instance {-# OVERLAPPING #-} KnownNat n => n :|: n where
     assemble _ = id
     disassemble = id
 
-instance {-# OVERLAPPABLE #-} ( (d == n) ~ False
-                              , KnownNat n
+instance {-# OVERLAPPABLE #-} ( KnownNat n
                               , KnownNat n'
                               , KnownNat d
                               , KnownNat (2 ^ n)
