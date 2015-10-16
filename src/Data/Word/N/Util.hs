@@ -58,16 +58,9 @@ import GHC.TypeLits
 --       find out what part of the typechecker I don't understand.
 slice :: forall m n o no mno. ( no ~ (n + o)
                               , mno ~ (m + no)
-                              , KnownNat mno
-                              , KnownNat no
-                              , KnownNat m
-                              , KnownNat n
-                              , KnownNat o
-                              , KnownNat (2 ^ mno)
-                              , KnownNat (2 ^ no)
-                              , KnownNat (2 ^ m)
-                              , KnownNat (2 ^ n)
-                              , KnownNat (2 ^ o)
+                              , BothKnown mno
+                              , BothKnown no
+                              , AllKnown m n o
                               ) => Proxy o -> W mno -> W n
 slice _ w = down
   where
@@ -135,12 +128,7 @@ disassembleL f = getDual . disassemble (Dual . f)
 class (KnownNat d, KnownNat n) => d :|: n where
 
     assemble :: forall f. Applicative f
-             => ( forall a b c. ( KnownNat a
-                                , KnownNat b
-                                , KnownNat c
-                                , KnownNat (2 ^ a)
-                                , KnownNat (2 ^ b)
-                                , KnownNat (2 ^ c)
+             => ( forall a b c. ( AllKnown a b c
                                 , c ~ (a + b)
                                 , c ~ (b + a)
                                 )
@@ -163,12 +151,7 @@ instance (eq ~ (d == n), Divides eq d n) => d :|: n where
 class (KnownNat d, KnownNat n, eq ~ (d == n)) => Divides (eq :: Bool) (d :: Nat) (n :: Nat) where
 
     assemble' :: forall f. Applicative f
-             => ( forall a b c. ( KnownNat a
-                                , KnownNat b
-                                , KnownNat c
-                                , KnownNat (2 ^ a)
-                                , KnownNat (2 ^ b)
-                                , KnownNat (2 ^ c)
+             => ( forall a b c. ( AllKnown a b c
                                 , c ~ (a + b)
                                 , c ~ (b + a)
                                 )
@@ -184,12 +167,7 @@ instance {-# OVERLAPPING #-} (KnownNat d, KnownNat n, True ~ (d == n), d ~ n) =>
     assemble' _ = id
     disassemble' = id
 
-instance {-# OVERLAPPABLE #-} ( KnownNat n
-                              , KnownNat n'
-                              , KnownNat d
-                              , KnownNat (2 ^ n)
-                              , KnownNat (2 ^ n')
-                              , KnownNat (2 ^ d)
+instance {-# OVERLAPPABLE #-} ( AllKnown n n' d
                               , Divides (d == n') d n'
                               , False ~ (d == n)
                               , n ~ (d + n')

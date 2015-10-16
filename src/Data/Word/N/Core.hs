@@ -14,6 +14,7 @@
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE MagicHash                  #-}
 {-# LANGUAGE FunctionalDependencies     #-}
+{-# LANGUAGE ConstraintKinds            #-}
 
 ---------------------------------------------------------
 -- |
@@ -30,6 +31,8 @@
 
 module Data.Word.N.Core
     ( W
+    , BothKnown
+    , AllKnown
     , (>+<)
     , split
     ) where
@@ -45,6 +48,14 @@ import GHC.TypeLits
 import Numeric.Mod
 import Text.Printf
 
+type BothKnown n = (KnownNat n, KnownNat (2 ^ n))
+
+-- | Synonym for readability
+type AllKnown m n o = ( BothKnown m
+                      , BothKnown n
+                      , BothKnown o
+                      )
+
 -- | Type representing a sequence of @n@ bits, or a non-negative integer smaller than @2^n@.
 newtype W (n :: Nat) = W { unW :: Mod (2 ^ n) }
     deriving (Eq, Enum, Ord, Ix, PrintfArg, Typeable)
@@ -52,10 +63,10 @@ newtype W (n :: Nat) = W { unW :: Mod (2 ^ n) }
 -- I'm still confused about why these need to be standalone...
 deriving instance KnownNat (2 ^ n) => Integral (W n)
 deriving instance KnownNat (2 ^ n) => Real (W n)
-deriving instance (Typeable n, Typeable (2 ^ n)) => Data (W n)
-
 deriving instance KnownNat (2 ^ n) => Bounded (W n)
 deriving instance KnownNat (2 ^ n) => Num (W n)
+
+deriving instance (Typeable n, Typeable (2 ^ n)) => Data (W n)
 
 -- Original name was BigWord, but since using this module requires more
 -- explicit type signatures, I decided to use just W. This may be stupid.
@@ -65,13 +76,13 @@ deriving instance KnownNat (2 ^ n) => Num (W n)
 -- INSTANCES
 -------------------------------
 
-instance (KnownNat n, KnownNat (2 ^ n)) => Show (W n) where
+instance Show (W n) where
     show = show . unW
 
-instance (KnownNat n, KnownNat (2 ^ n)) => Read (W n) where
+instance Read (W n) where
     readsPrec = ((.).(.)) (map $ \(a, str) -> (W a, str)) readsPrec
 
-instance (KnownNat n, KnownNat (2 ^ n)) => Bits (W n) where
+instance BothKnown n => Bits (W n) where
         (.&.) = ((.).(.)) fromInteger ((.&.) `on` toInteger)
         (.|.) = ((.).(.)) fromInteger ((.|.) `on` toInteger)
         xor   = ((.).(.)) fromInteger (xor   `on` toInteger)
@@ -89,7 +100,7 @@ instance (KnownNat n, KnownNat (2 ^ n)) => Bits (W n) where
                 else 0
         popCount = popCount . toInteger
 
-instance (KnownNat n, KnownNat (2 ^ n)) => FiniteBits (W n) where
+instance BothKnown n => FiniteBits (W n) where
     finiteBitSize = const $ natValInt' (proxy# :: Proxy# n)
 
 -------------------------------
@@ -109,14 +120,8 @@ instance (KnownNat n, KnownNat (2 ^ n)) => FiniteBits (W n) where
 
 infixr 0 >+<
 
-(>+<) :: forall n m o. ( KnownNat (2 ^ m)
-                       , KnownNat (2 ^ n)
-                       , KnownNat (2 ^ o)
-                       , KnownNat m
-                       , KnownNat n
-                       , KnownNat o
+(>+<) :: forall n m o. ( AllKnown m n o
                        , o ~ (m + n)
-                       , o ~ (n + m)
                        ) => W m -> W n -> W o
 
 (W x) >+< (W y) = fromInteger $ shift (toInteger x) (natValInt' (proxy# :: Proxy# n)) .|. toInteger y
@@ -137,12 +142,7 @@ infixr 0 >+<
 -- >        (b, y) = split x
 -- >        (c, d) = split y
 
-split :: forall n m o. ( KnownNat m
-                       , KnownNat n
-                       , KnownNat o
-                       , KnownNat (2 ^ m)
-                       , KnownNat (2 ^ n)
-                       , KnownNat (2 ^ o)
+split :: forall n m o. ( AllKnown m n o
                        , o ~ (m + n)
                        ) => W o -> (W m, W n)
 

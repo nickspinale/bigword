@@ -12,6 +12,10 @@ module Data.Word.N.Core
 -- | Type representing a sequence of <tt>n</tt> bits, or a non-negative
 --   integer smaller than <tt>2^n</tt>.
 data W (n :: Nat)
+type BothKnown n = (KnownNat n, KnownNat (2 ^ n))
+
+-- | Synonym for readability
+type AllKnown m n o = (BothKnown m, BothKnown n, BothKnown o)
 
 -- | Appends two <tt><a>W</a></tt>'s, treating the first's bits as more
 --   significant.
@@ -26,7 +30,7 @@ data W (n :: Nat)
 --     where
 --       f = fromIntegral :: Word32 -&gt; W 32
 --   </pre>
-(>+<) :: (KnownNat (2 ^ m), KnownNat (2 ^ n), KnownNat (2 ^ o), KnownNat m, KnownNat n, KnownNat o, o ~ (m + n), o ~ (n + m)) => W m -> W n -> W o
+(>+<) :: (AllKnown m n o, o ~ (m + n)) => W m -> W n -> W o
 
 -- | The inverse of <tt><a>&gt;+&lt;</a></tt>
 --   
@@ -47,7 +51,7 @@ data W (n :: Nat)
 --       (b, y) = split x
 --       (c, d) = split y
 --   </pre>
-split :: (KnownNat m, KnownNat n, KnownNat o, KnownNat (2 ^ m), KnownNat (2 ^ n), KnownNat (2 ^ o), o ~ (m + n)) => W o -> (W m, W n)
+split :: (AllKnown m n o, o ~ (m + n)) => W o -> (W m, W n)
 instance Text.Printf.PrintfArg (Data.Word.N.Core.W n)
 instance GHC.Arr.Ix (Data.Word.N.Core.W n)
 instance GHC.Classes.Ord (Data.Word.N.Core.W n)
@@ -55,13 +59,13 @@ instance GHC.Enum.Enum (Data.Word.N.Core.W n)
 instance GHC.Classes.Eq (Data.Word.N.Core.W n)
 instance GHC.TypeLits.KnownNat (2 GHC.TypeLits.^ n) => GHC.Real.Integral (Data.Word.N.Core.W n)
 instance GHC.TypeLits.KnownNat (2 GHC.TypeLits.^ n) => GHC.Real.Real (Data.Word.N.Core.W n)
-instance (Data.Typeable.Internal.Typeable n, Data.Typeable.Internal.Typeable (2 GHC.TypeLits.^ n)) => Data.Data.Data (Data.Word.N.Core.W n)
 instance GHC.TypeLits.KnownNat (2 GHC.TypeLits.^ n) => GHC.Enum.Bounded (Data.Word.N.Core.W n)
 instance GHC.TypeLits.KnownNat (2 GHC.TypeLits.^ n) => GHC.Num.Num (Data.Word.N.Core.W n)
-instance (GHC.TypeLits.KnownNat n, GHC.TypeLits.KnownNat (2 GHC.TypeLits.^ n)) => GHC.Show.Show (Data.Word.N.Core.W n)
-instance (GHC.TypeLits.KnownNat n, GHC.TypeLits.KnownNat (2 GHC.TypeLits.^ n)) => GHC.Read.Read (Data.Word.N.Core.W n)
-instance (GHC.TypeLits.KnownNat n, GHC.TypeLits.KnownNat (2 GHC.TypeLits.^ n)) => Data.Bits.Bits (Data.Word.N.Core.W n)
-instance (GHC.TypeLits.KnownNat n, GHC.TypeLits.KnownNat (2 GHC.TypeLits.^ n)) => Data.Bits.FiniteBits (Data.Word.N.Core.W n)
+instance (Data.Typeable.Internal.Typeable n, Data.Typeable.Internal.Typeable (2 GHC.TypeLits.^ n)) => Data.Data.Data (Data.Word.N.Core.W n)
+instance GHC.Show.Show (Data.Word.N.Core.W n)
+instance GHC.Read.Read (Data.Word.N.Core.W n)
+instance Data.Word.N.Core.BothKnown n => Data.Bits.Bits (Data.Word.N.Core.W n)
+instance Data.Word.N.Core.BothKnown n => Data.Bits.FiniteBits (Data.Word.N.Core.W n)
 
 
 -- | Classes for converting to and from the <tt><a>W</a> n</tt> type.
@@ -149,7 +153,7 @@ data W (n :: Nat)
 --     where
 --       f = fromIntegral :: Word32 -&gt; W 32
 --   </pre>
-(>+<) :: (KnownNat (2 ^ m), KnownNat (2 ^ n), KnownNat (2 ^ o), KnownNat m, KnownNat n, KnownNat o, o ~ (m + n), o ~ (n + m)) => W m -> W n -> W o
+(>+<) :: (AllKnown m n o, o ~ (m + n)) => W m -> W n -> W o
 
 -- | The inverse of <tt><a>&gt;+&lt;</a></tt>
 --   
@@ -170,7 +174,7 @@ data W (n :: Nat)
 --       (b, y) = split x
 --       (c, d) = split y
 --   </pre>
-split :: (KnownNat m, KnownNat n, KnownNat o, KnownNat (2 ^ m), KnownNat (2 ^ n), KnownNat (2 ^ o), o ~ (m + n)) => W o -> (W m, W n)
+split :: (AllKnown m n o, o ~ (m + n)) => W o -> (W m, W n)
 
 -- | Provides a way to convert from fixed-bit types to the <tt><a>W</a>
 --   n</tt> type.
@@ -194,15 +198,19 @@ BigEndian :: a -> BigEndian a
 newtype LittleEndian a
 LittleEndian :: a -> LittleEndian a
 [fromLittleEndian] :: LittleEndian a -> a
+type BothKnown n = (KnownNat n, KnownNat (2 ^ n))
+
+-- | Synonym for readability
+type AllKnown m n o = (BothKnown m, BothKnown n, BothKnown o)
 
 
 -- | Useful functions for working with <tt><a>W</a> n</tt>'s.
 module Data.Word.N.Util
-slice :: (no ~ (n + o), mno ~ (m + no), KnownNat mno, KnownNat no, KnownNat m, KnownNat n, KnownNat o, KnownNat (2 ^ mno), KnownNat (2 ^ no), KnownNat (2 ^ m), KnownNat (2 ^ n), KnownNat (2 ^ o)) => Proxy o -> W mno -> W n
+slice :: (no ~ (n + o), mno ~ (m + no), BothKnown mno, BothKnown no, AllKnown m n o) => Proxy o -> W mno -> W n
 
 -- | Reads "d divides n".
 class (KnownNat d, KnownNat n) => (:|:) d n
-assemble :: ((:|:) d n, Applicative f) => (forall a b c. (KnownNat a, KnownNat b, KnownNat c, KnownNat (2 ^ a), KnownNat (2 ^ b), KnownNat (2 ^ c), c ~ (a + b), c ~ (b + a)) => W a -> W b -> W c) -> f (W d) -> f (W n)
+assemble :: ((:|:) d n, Applicative f) => (forall a b c. (AllKnown a b c, c ~ (a + b), c ~ (b + a)) => W a -> W b -> W c) -> f (W d) -> f (W n)
 disassemble :: ((:|:) d n, Monoid m) => (W d -> m) -> (W n -> m)
 
 -- | Same as assembleR, but treats the first results as less significant.
@@ -262,4 +270,4 @@ showBits :: (1 :|: n) => W n -> String
 showHex :: (4 :|: n) => W n -> String
 instance (eq ~ (d Data.Type.Equality.== n), Data.Word.N.Util.Divides eq d n) => d Data.Word.N.Util.:|: n
 instance (GHC.TypeLits.KnownNat d, GHC.TypeLits.KnownNat n, 'GHC.Types.True ~ (d Data.Type.Equality.== n), d ~ n) => Data.Word.N.Util.Divides 'GHC.Types.True d n
-instance (GHC.TypeLits.KnownNat n, GHC.TypeLits.KnownNat n', GHC.TypeLits.KnownNat d, GHC.TypeLits.KnownNat (2 GHC.TypeLits.^ n), GHC.TypeLits.KnownNat (2 GHC.TypeLits.^ n'), GHC.TypeLits.KnownNat (2 GHC.TypeLits.^ d), Data.Word.N.Util.Divides (d Data.Type.Equality.== n') d n', 'GHC.Types.False ~ (d Data.Type.Equality.== n), n ~ (d GHC.TypeLits.+ n'), n ~ (n' GHC.TypeLits.+ d)) => Data.Word.N.Util.Divides 'GHC.Types.False d n
+instance (Data.Word.N.Core.AllKnown n n' d, Data.Word.N.Util.Divides (d Data.Type.Equality.== n') d n', 'GHC.Types.False ~ (d Data.Type.Equality.== n), n ~ (d GHC.TypeLits.+ n'), n ~ (n' GHC.TypeLits.+ d)) => Data.Word.N.Util.Divides 'GHC.Types.False d n

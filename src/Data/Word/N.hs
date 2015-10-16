@@ -25,6 +25,10 @@ module Data.Word.N
     , FromW(..)
     , BigEndian(..)
     , LittleEndian(..)
+
+    -- * Convenience
+    , BothKnown
+    , AllKnown
     ) where
 
 import Data.Word.N.Conversion
