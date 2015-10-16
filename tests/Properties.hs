@@ -29,9 +29,8 @@ import Test.Framework ( Test, defaultMain )
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.Framework.Providers.HUnit
 import Data.Word.N
+import Data.Word.N.Util
 import Data.Bits
-import Control.Monad
-import Data.Binary (getWord8, putWord8)
 import Data.Binary.Get
 import Data.Binary.Put
 import qualified Data.ByteString.Lazy as LZ
@@ -63,18 +62,18 @@ pQuotRem x = rx == fromInteger ry
     (_qx, rx) = quotRem x 16
     (_qy, ry) = quotRem ((fromIntegral x) :: Integer) 16
 
--- encodeDecode :: (Binary a, Binary b, Eq a, Eq b) => LargeKey a b -> Bool
+encodeDecode :: (8 :|: n) => W n -> Bool
 encodeDecode word = decode' encoded == word
-	where
-	encoded = encode' word
-	{-# NOINLINE encoded #-}
+  where
+    encoded = encode' word
+    {-# NOINLINE encoded #-}
 
 correctEncoding :: Assertion
 correctEncoding = (decode' . LZ.pack)
-	[0,0,0,0,0,0,0,0,50,89,125,125,237,119,73,240
+    [0,0,0,0,0,0,0,0,50,89,125,125,237,119,73,240
         ,217,12,178,101,235,8,44,221,50,122,244,125,115,181,239,78]
-	@?=
-	(1234567891234567891234567812345678123456781234567812345678 :: W 256)
+    @?=
+    (1234567891234567891234567812345678123456781234567812345678 :: W 256)
 
 pRotateLeftRight :: W 256 -> Bool
 pRotateLeftRight x = rotate (rotate x 8) (-8) == x
