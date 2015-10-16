@@ -17,7 +17,8 @@ source-repository head
     location: https://github.com/nickspinale/bigword
 
 library
-  exposed-modules:     Data.Word.N
+  exposed-modules:       Data.Word.N
+                       , Data.Word.N.Util
   -- other-modules:       
   other-extensions:      DataKinds
                        , DeriveDataTypeable
