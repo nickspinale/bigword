@@ -40,7 +40,9 @@ import GHC.TypeLits
 -- the pattern of @'W'@'s specified by 'list' to 'result'.
 type Fn list result = Foldr (->) result (Map W list)
 
-class Church list _ f => Flatten f a fa where
+type family Flatten a where
+    Flatten (Identity b) = b
+    Flatten (Compose c d) = c (Flatten d)
 
 -- instance Flatten Identity 
 
