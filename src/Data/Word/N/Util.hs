@@ -31,35 +31,33 @@ module Data.Word.N.Util
     ( Church(..)
     ) where
 
-import Control.Applicative
 import Data.Word.N
 import Data.Type.List
 import Data.Proxy
-import Data.Traversable
-import Data.Type.Equality
-import Data.Type.Bool
 import GHC.TypeLits
 
-type Fn list result = Foldr (->) result list
+-- | Type synonym for readability. Constructs a the type of functions from
+-- the pattern of @'W'@'s specified by 'list' to 'result'.
+type Fn list result = Foldr (->) result (Map W list)
 
-class Church list sum | list -> sum where
-    inspect :: Proxy list -> Fn (Map W list) result -> W sum -> result
+-- | Acces a church-encoded view of a @'W'@.
+class Church list where
+    -- | Because @'Fn'@ is not injective, we use a proxy.
+    -- This is a temporary solution, until either injective type families come to GHC
+    -- (which will happen in the next major release),
+    -- or I find a better way of dealing with this problem.
+    inspect :: Proxy list -> Fn list result -> W (Sum list) -> result
 
-instance Church '[n] n where
+instance Church '[n] where
     inspect = const ($)
 
-instance (Triplet nos m mnos, Church (n ': os) nos) => Church (m ': n ': os) mnos where
-    inspect _ f w = inspect (Proxy :: Proxy (n ': os)) (f high) low 
+instance ( xyzs ~ Sum (x ': y ': zs)
+         , yzs ~ Sum (y ': zs)
+         , Triplet yzs x xyzs
+         , Church (y ': zs)
+         ) => Church (x ': y ': zs) where
+    inspect _ f w = inspect (Proxy :: Proxy (y ': zs)) (f high) low 
       where
-        high :: W m
-        low :: W nos
+        high :: W x
+        low :: W (y + Sum zs)
         (high, low) = split w
-
-subj :: W 2
-subj = 2
-
-look :: W 1 -> W 1 -> String
-look x y = show x ++ show y
-
-go :: String
-go = inspect (Proxy :: Proxy '[1, 1]) look subj 
