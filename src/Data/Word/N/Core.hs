@@ -1,19 +1,14 @@
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE Rank2Types                 #-}
-{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE MagicHash                  #-}
-{-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE ConstraintKinds            #-}
 
 ---------------------------------------------------------
@@ -32,7 +27,7 @@
 module Data.Word.N.Core
     ( W
     , BothKnown
-    , AllKnown
+    , Triplet
     , (>+<)
     , split
     ) where
@@ -41,36 +36,36 @@ import Data.Bits
 import Data.Data
 import Data.Function
 import Data.Ix
-import Data.Proxy
-import Data.Word
 import GHC.Exts
 import GHC.TypeLits
 import Numeric.Mod
 import Text.Printf
 
+-- | Synonym for readability
 type BothKnown n = (KnownNat n, KnownNat (2 ^ n))
 
 -- | Synonym for readability
-type AllKnown m n o = ( BothKnown m
-                      , BothKnown n
-                      , BothKnown o
-                      )
+type Triplet m n o = ( BothKnown m
+                     , BothKnown n
+                     , BothKnown o
+                     , o ~ (n + m)
+                     )
 
 -- | Type representing a sequence of @n@ bits, or a non-negative integer smaller than @2^n@.
+
+-- Original name was BigWord, but since using this module requires more
+-- explicit type signatures, I decided to use just W. This may be stupid.
+-- Sorry if the name conflicts with your code.
+
 newtype W (n :: Nat) = W { unW :: Mod (2 ^ n) }
     deriving (Eq, Enum, Ord, Ix, PrintfArg, Typeable)
 
--- I'm still confused about why these need to be standalone...
 deriving instance KnownNat (2 ^ n) => Integral (W n)
 deriving instance KnownNat (2 ^ n) => Real (W n)
 deriving instance KnownNat (2 ^ n) => Bounded (W n)
 deriving instance KnownNat (2 ^ n) => Num (W n)
 
 deriving instance (Typeable n, Typeable (2 ^ n)) => Data (W n)
-
--- Original name was BigWord, but since using this module requires more
--- explicit type signatures, I decided to use just W. This may be stupid.
--- Sorry if the name conflicts with your code.
 
 -------------------------------
 -- INSTANCES
@@ -120,11 +115,9 @@ instance BothKnown n => FiniteBits (W n) where
 
 infixr 0 >+<
 
-(>+<) :: forall n m o. ( AllKnown m n o
-                       , o ~ (m + n)
-                       ) => W m -> W n -> W o
+(>+<) :: forall n m o. Triplet m n o => W n -> W m -> W o
 
-(W x) >+< (W y) = fromInteger $ shift (toInteger x) (natValInt' (proxy# :: Proxy# n)) .|. toInteger y
+(W x) >+< (W y) = fromInteger $ shift (toInteger x) (natValInt' (proxy# :: Proxy# m)) .|. toInteger y
 
 -- | The inverse of @'>+<'@
 --
@@ -142,11 +135,9 @@ infixr 0 >+<
 -- >        (b, y) = split x
 -- >        (c, d) = split y
 
-split :: forall n m o. ( AllKnown m n o
-                       , o ~ (m + n)
-                       ) => W o -> (W m, W n)
+split :: forall n m o. Triplet m n o => W o -> (W n, W m)
 
-split (W z) = (fromInteger $ shiftR (toInteger z) (natValInt' (proxy# :: Proxy# n)), fromIntegral z)
+split (W z) = (fromInteger $ shiftR (toInteger z) (natValInt' (proxy# :: Proxy# m)), fromIntegral z)
 
 -------------------------------
 -- HELPERS

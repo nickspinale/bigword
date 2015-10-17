@@ -28,7 +28,7 @@ module Data.Word.N
 
     -- * Convenience
     , BothKnown
-    , AllKnown
+    , Triplet
     ) where
 
 import Data.Word.N.Conversion

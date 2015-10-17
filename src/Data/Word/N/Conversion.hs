@@ -1,18 +1,6 @@
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveDataTypeable         #-}
-{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE Rank2Types                 #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE MagicHash                  #-}
 {-# LANGUAGE FunctionalDependencies     #-}
 
 ---------------------------------------------------------
@@ -42,7 +30,7 @@ import Data.Word
 import GHC.TypeLits
 
 -- | Provides a way to convert from fixed-bit types to the @'W' n@ type.
-class ToW (n :: Nat) (a :: *) | a -> n where
+class ToW n a | a -> n where
     toW :: a -> W n
 
 instance ToW n (W n) where
@@ -58,8 +46,8 @@ instance ToW 32 Int32  where toW = fromIntegral
 instance ToW 64 Int64  where toW = fromIntegral
 
 -- | Provides a way to convert from the @'W' n@ type to fixed-bit types.
-class FromW (n :: Nat) (a :: *) | a -> n where
-    fromW :: a -> W n
+class FromW n a | a -> n where
+    fromW :: W n -> a
 
 instance FromW n (W n) where
     fromW = id
@@ -74,7 +62,7 @@ instance FromW 32 Int32  where fromW = fromIntegral
 instance FromW 64 Int64  where fromW = fromIntegral
 
 -- | Wrapper for tuples. @'ToW'@ and @'FromW'@ interpret the leftmost members of such tuples as the most significant.
-newtype BigEndian    a = BigEndian    { fromBigEndian    :: a }
+newtype BigEndian a = BigEndian { fromBigEndian :: a }
 
 -- | Wrapper for tuples. @'ToW'@ and @'FromW'@ interpret the rightmost members of such tuples as the most significant.
 newtype LittleEndian a = LittleEndian { fromLittleEndian :: a }
