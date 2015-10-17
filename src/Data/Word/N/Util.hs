@@ -40,6 +40,13 @@ import GHC.TypeLits
 -- the pattern of @'W'@'s specified by 'list' to 'result'.
 type Fn list result = Foldr (->) result (Map W list)
 
+-- | Inverse of Fn
+type UnFn a = Reverse (UnFnAux '[] a)
+
+type family UnFnAux (acc :: [Nat]) (rest :: *) :: ([Nat], *) where
+    UnFnAux acc (W n -> r) = UnFnAux (n ': acc) r
+    UnFnAux acc r = '(acc, r)
+
 -- | Acces a church-encoded view of a @'W'@.
 class Church list where
     -- | Because @'Fn'@ is not injective, we use a proxy.
@@ -61,3 +68,6 @@ instance ( xyzs ~ Sum (x ': y ': zs)
         high :: W x
         low :: W (y + Sum zs)
         (high, low) = split w
+
+inspect' :: ('(list, result) ~ UnFn (Fn list result), Church list) => Fn list result -> W (Sum list) -> result
+inspect' = inspect (Proxy :: list)
