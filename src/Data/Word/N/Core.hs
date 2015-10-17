@@ -48,7 +48,7 @@ type BothKnown n = (KnownNat n, KnownNat (2 ^ n))
 type Triplet m n o = ( BothKnown m
                      , BothKnown n
                      , BothKnown o
-                     , o ~ (n + m)
+                     , (m + n) ~ o
                      )
 
 -- | Type representing a sequence of @n@ bits, or a non-negative integer smaller than @2^n@.
@@ -115,9 +115,9 @@ instance BothKnown n => FiniteBits (W n) where
 
 infixr 0 >+<
 
-(>+<) :: forall n m o. Triplet m n o => W n -> W m -> W o
+(>+<) :: forall m n o. Triplet m n o => W m -> W n -> W o
 
-(W x) >+< (W y) = fromInteger $ shift (toInteger x) (natValInt' (proxy# :: Proxy# m)) .|. toInteger y
+(W x) >+< (W y) = fromInteger $ shift (toInteger x) (natValInt' (proxy# :: Proxy# n)) .|. toInteger y
 
 -- | The inverse of @'>+<'@
 --
@@ -135,9 +135,9 @@ infixr 0 >+<
 -- >        (b, y) = split x
 -- >        (c, d) = split y
 
-split :: forall n m o. Triplet m n o => W o -> (W n, W m)
+split :: forall m n o. Triplet m n o => W o -> (W m, W n)
 
-split (W z) = (fromInteger $ shiftR (toInteger z) (natValInt' (proxy# :: Proxy# m)), fromIntegral z)
+split (W z) = (fromInteger $ shiftR (toInteger z) (natValInt' (proxy# :: Proxy# n)), fromIntegral z)
 
 -------------------------------
 -- HELPERS

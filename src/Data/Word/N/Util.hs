@@ -1,18 +1,12 @@
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE Rank2Types                 #-}
-{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE FunctionalDependencies     #-}
-{-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE UndecidableInstances       #-}
--- {-# LANGUAGE IncoherentInstances       #-}
--- {-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE FunctionalDependencies     #-}
 
 ---------------------------------------------------------
 -- |
@@ -32,42 +26,72 @@ module Data.Word.N.Util
     ) where
 
 import Data.Word.N
-import Data.Type.List
+
+import Data.Function
 import Data.Proxy
+import Data.Type.List
+import Data.Functor.Compose
 import GHC.TypeLits
 
 -- | Type synonym for readability. Constructs a the type of functions from
 -- the pattern of @'W'@'s specified by 'list' to 'result'.
-type Fn list result = Foldr (->) result (Map W list)
+-- type Fn list result = Foldr (->) result (Map W list)
 
--- | Inverse of Fn
-type UnFn a = Reverse (UnFnAux '[] a)
+class Functor fn => Church (head ::  Nat  )
+                           (tail :: [Nat] )
+                           (sum  ::  Nat  )
+                           (fn   :: * -> *) | fn -> head
+                                            , fn -> tail
+                                            , fn -> sum where
 
-type family UnFnAux (acc :: [Nat]) (rest :: *) :: ([Nat], *) where
-    UnFnAux acc (W n -> r) = UnFnAux (n ': acc) r
-    UnFnAux acc r = '(acc, r)
+    inspect :: Proxy (head ': tail) -> fn result -> W sum -> result
+    construct :: Proxy (head ': tail) -> fn (W sum)
+    -- construct :: Proxy list -> Fn list (W (Sum list))
 
--- | Acces a church-encoded view of a @'W'@.
-class Church list where
-    -- | Because @'Fn'@ is not injective, we use a proxy.
-    -- This is a temporary solution, until either injective type families come to GHC
-    -- (which will happen in the next major release),
-    -- or I find a better way of dealing with this problem.
-    inspect :: Proxy list -> Fn list result -> W (Sum list) -> result
+instance Church head '[] head ((->) (W head)) where
+    inspect = flip const
+    construct = flip const
 
-instance Church '[n] where
-    inspect = const ($)
+instance ( Triplet head sum sum'
+         , Church x xs sum fn
+         ) => Church head (x ': xs) sum' (Compose ((->) (W head)) fn) where
 
-instance ( xyzs ~ Sum (x ': y ': zs)
-         , yzs ~ Sum (y ': zs)
-         , Triplet yzs x xyzs
-         , Church (y ': zs)
-         ) => Church (x ': y ': zs) where
-    inspect _ f w = inspect (Proxy :: Proxy (y ': zs)) (f high) low 
+    inspect _ f w = inspect (Proxy :: Proxy (x ': xs)) (getCompose f high) low 
       where
-        high :: W x
-        low :: W (y + Sum zs)
+        high :: W head
+        low :: W sum
         (high, low) = split w
 
-inspect' :: ('(list, result) ~ UnFn (Fn list result), Church list) => Fn list result -> W (Sum list) -> result
-inspect' = inspect (Proxy :: list)
+    construct _ = Compose $ \high -> fmap ((high :: W head) >+<) (construct (Proxy :: Proxy (x ': xs)))
+
+-- instance ( Triplet Church x xs => Church head (x ': xs) where
+--     inspect _ f w = inspect (Proxy :: Proxy '(x, xs)) (f high) low 
+--       where
+--         (high, low) = split w
+
+-- class Church head tail where
+--     inspect :: Proxy '(head, tail) -> (W head -> Fn tail result) -> W (head + Sum tail) -> result
+--     -- construct :: Proxy list -> Fn list (W (Sum list))
+
+-- instance Church head '[] where
+--     inspect _ f w = f w
+--     -- construct = flip const
+
+-- instance ( Triplet Church x xs => Church head (x ': xs) where
+--     inspect _ f w = inspect (Proxy :: Proxy '(x, xs)) (f high) low 
+--       where
+--         (high, low) = split w
+
+-- instance Church (y ': zs) => Church (x ': y ': zs) where
+-- instance ( Triplet x (Sum (y ': zs)) (Sum (x ': y ': zs))
+--          , Church (y ': zs)
+--          ) => Church (x ': y ': zs) where
+-- instance ( Triplet x (Sum 
+--          , Church (y ': zs)
+--          ) => Church head (x ': xs) where
+
+--     inspect _ f w = inspect (Proxy :: Proxy (y ': zs)) (f high) low 
+--       where
+--         (high, low) = split w
+
+--     construct _ = \high -> ((high :: W x) >+<) . (construct (Proxy :: Proxy (y ': zs)) :: Fn (y ': zs) (W (Sum (y ': zs))))
