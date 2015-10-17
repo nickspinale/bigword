@@ -292,22 +292,23 @@ instance forall n0 n1 n01 a0 a1. ( n01 ~ (n0 + n1), n01 ~ (n1 + n0), KnownNat n0
          , FromW n0 a0, KnownNat n0, KnownNat (2 ^ n0)
          , FromW n1 a1, KnownNat n1, KnownNat (2 ^ n1)
 
-         ) => FromW n01 (BigEndian (a0, a1)) where
-    fromW w = BigEndian (fromW a0, fromW a1)
+         ) => FromW n01 (BigEndian (a1, a0)) where
+    fromW w = BigEndian (fromW a1, fromW a0)
       where
-        a0 :: W n0
-        a1 :: W n1
-        (a0, a1) = split w
+        (a1, a0) = split w
 
---instance ( n01 ~ (n0 + n1), n01 ~ (n1 + n0), KnownNat n01, KnownNat (2 ^ n01)
---         , n012 ~ (n01 + n2), n012 ~ (n2 + n01), KnownNat n012, KnownNat (2 ^ n012)
+-- instance ( n01 ~ (n0 + n1), n01 ~ (n1 + n0), KnownNat n01, KnownNat (2 ^ n01)
+--          , n012 ~ (n01 + n2), n012 ~ (n2 + n01), KnownNat n012, KnownNat (2 ^ n012)
 
---         , ToW n0 a0, KnownNat n0, KnownNat (2 ^ n0)
---         , ToW n1 a1, KnownNat n1, KnownNat (2 ^ n1)
---         , ToW n2 a2, KnownNat n2, KnownNat (2 ^ n2)
+--          , ToW n0 a0, KnownNat n0, KnownNat (2 ^ n0)
+--          , ToW n1 a1, KnownNat n1, KnownNat (2 ^ n1)
+--          , ToW n2 a2, KnownNat n2, KnownNat (2 ^ n2)
 
---         ) => ToW n012 (BigEndian (a2, a1, a0)) where
---    toW (BigEndian (a2, a1, a0)) = toW a2 >+< toW a1 >+< toW a0
+--          ) => FromW n012 (BigEndian (a0, a1, a2)) where
+--     fromW w = (BigEndian (fromW a0, fromW a1, fromW a2))
+--       where
+--         (a01, a2) = split w
+--         (a0, a1) = split a01
 
 --instance ( n01 ~ (n0 + n1), n01 ~ (n1 + n0), KnownNat n01, KnownNat (2 ^ n01)
 --         , n012 ~ (n01 + n2), n012 ~ (n2 + n01), KnownNat n012, KnownNat (2 ^ n012)
