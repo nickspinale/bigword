@@ -12,10 +12,12 @@ module Data.Word.N.Core
 -- | Type representing a sequence of <tt>n</tt> bits, or a non-negative
 --   integer smaller than <tt>2^n</tt>.
 data W (n :: Nat)
+
+-- | Synonym for readability
 type BothKnown n = (KnownNat n, KnownNat (2 ^ n))
 
 -- | Synonym for readability
-type AllKnown m n o = (BothKnown m, BothKnown n, BothKnown o)
+type Triplet m n o = (BothKnown m, BothKnown n, BothKnown o, (m + n) ~ o)
 
 -- | Appends two <tt><a>W</a></tt>'s, treating the first's bits as more
 --   significant.
@@ -30,7 +32,7 @@ type AllKnown m n o = (BothKnown m, BothKnown n, BothKnown o)
 --     where
 --       f = fromIntegral :: Word32 -&gt; W 32
 --   </pre>
-(>+<) :: (AllKnown m n o, o ~ (m + n)) => W m -> W n -> W o
+(>+<) :: Triplet m n o => W m -> W n -> W o
 
 -- | The inverse of <tt><a>&gt;+&lt;</a></tt>
 --   
@@ -51,7 +53,7 @@ type AllKnown m n o = (BothKnown m, BothKnown n, BothKnown o)
 --       (b, y) = split x
 --       (c, d) = split y
 --   </pre>
-split :: (AllKnown m n o, o ~ (m + n)) => W o -> (W m, W n)
+split :: Triplet m n o => W o -> (W m, W n)
 instance Text.Printf.PrintfArg (Data.Word.N.Core.W n)
 instance GHC.Arr.Ix (Data.Word.N.Core.W n)
 instance GHC.Classes.Ord (Data.Word.N.Core.W n)
@@ -73,13 +75,13 @@ module Data.Word.N.Conversion
 
 -- | Provides a way to convert from fixed-bit types to the <tt><a>W</a>
 --   n</tt> type.
-class ToW (n :: Nat) (a :: *) | a -> n
+class ToW n a | a -> n
 toW :: ToW n a => a -> W n
 
 -- | Provides a way to convert from the <tt><a>W</a> n</tt> type to
 --   fixed-bit types.
-class FromW (n :: Nat) (a :: *) | a -> n
-fromW :: FromW n a => a -> W n
+class FromW n a | a -> n
+fromW :: FromW n a => W n -> a
 
 -- | Wrapper for tuples. <tt><a>ToW</a></tt> and <tt><a>FromW</a></tt>
 --   interpret the leftmost members of such tuples as the most significant.
@@ -153,7 +155,7 @@ data W (n :: Nat)
 --     where
 --       f = fromIntegral :: Word32 -&gt; W 32
 --   </pre>
-(>+<) :: (AllKnown m n o, o ~ (m + n)) => W m -> W n -> W o
+(>+<) :: Triplet m n o => W m -> W n -> W o
 
 -- | The inverse of <tt><a>&gt;+&lt;</a></tt>
 --   
@@ -174,17 +176,17 @@ data W (n :: Nat)
 --       (b, y) = split x
 --       (c, d) = split y
 --   </pre>
-split :: (AllKnown m n o, o ~ (m + n)) => W o -> (W m, W n)
+split :: Triplet m n o => W o -> (W m, W n)
 
 -- | Provides a way to convert from fixed-bit types to the <tt><a>W</a>
 --   n</tt> type.
-class ToW (n :: Nat) (a :: *) | a -> n
+class ToW n a | a -> n
 toW :: ToW n a => a -> W n
 
 -- | Provides a way to convert from the <tt><a>W</a> n</tt> type to
 --   fixed-bit types.
-class FromW (n :: Nat) (a :: *) | a -> n
-fromW :: FromW n a => a -> W n
+class FromW n a | a -> n
+fromW :: FromW n a => W n -> a
 
 -- | Wrapper for tuples. <tt><a>ToW</a></tt> and <tt><a>FromW</a></tt>
 --   interpret the leftmost members of such tuples as the most significant.
@@ -198,76 +200,13 @@ BigEndian :: a -> BigEndian a
 newtype LittleEndian a
 LittleEndian :: a -> LittleEndian a
 [fromLittleEndian] :: LittleEndian a -> a
+
+-- | Synonym for readability
 type BothKnown n = (KnownNat n, KnownNat (2 ^ n))
 
 -- | Synonym for readability
-type AllKnown m n o = (BothKnown m, BothKnown n, BothKnown o)
+type Triplet m n o = (BothKnown m, BothKnown n, BothKnown o, (m + n) ~ o)
 
 
 -- | Useful functions for working with <tt><a>W</a> n</tt>'s.
 module Data.Word.N.Util
-slice :: (no ~ (n + o), mno ~ (m + no), BothKnown mno, BothKnown no, AllKnown m n o) => Proxy o -> W mno -> W n
-
--- | Reads "d divides n".
-class (KnownNat d, KnownNat n) => (:|:) d n
-assemble :: ((:|:) d n, Applicative f) => (forall a b c. (AllKnown a b c, c ~ (a + b), c ~ (b + a)) => W a -> W b -> W c) -> f (W d) -> f (W n)
-disassemble :: ((:|:) d n, Monoid m) => (W d -> m) -> (W n -> m)
-
--- | Same as assembleR, but treats the first results as less significant.
---   
---   Example using attoparsec to parse a little-endian unsigned 128-bit
---   integer:
---   
---   <pre>
---   import Data.Attoparsec.ByteString
---   import Data.Word
---   
---   anyWord128LE :: Parser (W 128)
---   anyWord128LE = assembleL $ fmap (fromIntegral :: Word8 -&gt; W 8) anyWord8
---   </pre>
-assembleL :: (Applicative f, d :|: n) => f (W d) -> f (W n)
-
--- | Transforms an applicative action that results in a <tt><a>W</a> d</tt>
---   to on that results in a <tt><a>W</a> n</tt>, provided that
---   <tt>d|n</tt> (hence the <tt>:|:</tt> constraint), treating the first
---   results as more significant.
---   
---   Here's the example above, modified to parse in network-byte order:
---   
---   <pre>
---   anyWord128BE :: Parser (W 128)
---   anyWord128BE = assembleR $ fmap (fromIntegral :: Word8 -&gt; W 8) anyWord8
---   </pre>
-assembleR :: (Applicative f, d :|: n) => f (W d) -> f (W n)
-
--- | Same as disassembleL, but combines less significant chunks first.
---   
---   Example using a bytestrings
---   
---   <pre>
---   import Data.ByteString.Builder
---   
---   word128LE :: W 128 -&gt; Builder
---   word128LE = disassembleL (word8 . (fromIntegral :: W 8 -&gt; Word8))
---   </pre>
-disassembleL :: (Monoid m, d :|: n) => (W d -> m) -> (W n -> m)
-
--- | Breaks a <tt><a>W</a> n</tt> into its constituent <tt>d</tt>-sized
---   chunks, and combines them according to the provided monoid. More
---   significant chunks are combined first.
---   
---   <tt>disassembleL</tt>'s example adjusted to build in network-byte
---   order:
---   
---   <pre>
---   import Data.ByteString.Builder
---   
---   word128BE :: W 128 -&gt; Builder
---   word128BE = disassembleR (word8 . (fromIntegral :: W 8 -&gt; Word8))
---   </pre>
-disassembleR :: (Monoid m, d :|: n) => (W d -> m) -> (W n -> m)
-showBits :: (1 :|: n) => W n -> String
-showHex :: (4 :|: n) => W n -> String
-instance (eq ~ (d Data.Type.Equality.== n), Data.Word.N.Util.Divides eq d n) => d Data.Word.N.Util.:|: n
-instance (GHC.TypeLits.KnownNat d, GHC.TypeLits.KnownNat n, 'GHC.Types.True ~ (d Data.Type.Equality.== n), d ~ n) => Data.Word.N.Util.Divides 'GHC.Types.True d n
-instance (Data.Word.N.Core.AllKnown n n' d, Data.Word.N.Util.Divides (d Data.Type.Equality.== n') d n', 'GHC.Types.False ~ (d Data.Type.Equality.== n), n ~ (d GHC.TypeLits.+ n'), n ~ (n' GHC.TypeLits.+ d)) => Data.Word.N.Util.Divides 'GHC.Types.False d n
