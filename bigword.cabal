@@ -30,6 +30,7 @@ Library
                    , tagged
   exposed-modules:   Data.Word.N
                    , Data.Word.N.Util
+                   , Data.Word.N.Church
 
 Test-suite tests
   Type: exitcode-stdio-1.0

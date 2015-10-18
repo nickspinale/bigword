@@ -31,7 +31,8 @@
 ---------------------------------------------------------
 
 module Data.Word.N.Church
-    (
+    ( Fn
+    , NonEmpty(..)
     ) where
 
 import Data.Word.N

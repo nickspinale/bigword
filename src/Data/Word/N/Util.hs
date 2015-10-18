@@ -72,8 +72,11 @@ slice _ w = down
 --
 -- > assembleR = 'assemble' ('>+<')
 --
--- Here's the example above, modified to parse in network-byte order:
+-- Example using attoparsec to parse a big-endian unsigned 128-bit integer:
 --
+-- >    import Data.Attoparsec.ByteString
+-- >    import Data.Word
+-- >
 -- >    anyWord128BE :: Parser (W 128)
 -- >    anyWord128BE = assembleR $ fmap (fromIntegral :: Word8 -> W 8) anyWord8
 
@@ -84,7 +87,7 @@ assembleR = assemble (>+<)
 --
 -- > assembleL = 'assemble' (flip ('>+<'))
 --
--- Example using attoparsec to parse a little-endian unsigned 128-bit integer:
+-- Here's the example above, modified to parse in little-endian byte order:
 --
 -- >    import Data.Attoparsec.ByteString
 -- >    import Data.Word
@@ -100,7 +103,7 @@ assembleL = assemble (flip (>+<))
 --
 -- > disassembleR = disassemble
 --
--- @disassembleL@'s example adjusted to build in network-byte order:
+-- Example using a bytestrings
 --
 -- >    import Data.ByteString.Builder
 -- >
@@ -114,7 +117,7 @@ disassembleR = disassemble
 --
 -- > disassembleL f = getDual . disassemble (Dual . f)
 --
--- Example using a bytestrings
+-- @disassembleR@'s example adjusted to build in little-endian byte order:
 --
 -- >    import Data.ByteString.Builder
 -- >

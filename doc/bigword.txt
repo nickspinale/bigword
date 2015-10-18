@@ -310,3 +310,10 @@ showHex :: (4 :|: n) => W n -> String
 instance (eq ~ (d Data.Type.Equality.== n), Data.Word.N.Util.Divides eq d n) => d Data.Word.N.Util.:|: n
 instance (GHC.TypeLits.KnownNat d, GHC.TypeLits.KnownNat n, 'GHC.Types.True ~ (d Data.Type.Equality.== n), d ~ n) => Data.Word.N.Util.Divides 'GHC.Types.True d n
 instance (Data.Word.N.Core.Triplet d n' n, Data.Word.N.Util.Divides (d Data.Type.Equality.== n') d n', 'GHC.Types.False ~ (d Data.Type.Equality.== n)) => Data.Word.N.Util.Divides 'GHC.Types.False d n
+
+
+-- | Provides a church-encoding means of inspecting and constructing
+--   bit-vectors. This module is currenty a work in progress.
+module Data.Word.N.Church
+type Fn list result = Foldr (->) result list
+class NonEmpty (ns :: [Nat])
