@@ -113,7 +113,7 @@ instance BothKnown n => FiniteBits (W n) where
 -- >      where
 -- >        f = fromIntegral :: Word32 -> W 32
 
-infixr 0 >+<
+infixr 6 >+<
 
 (>+<) :: forall m n o. Triplet m n o => W m -> W n -> W o
 
