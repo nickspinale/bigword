@@ -37,12 +37,14 @@ import Data.Functor.Identity
 import Data.Function
 import Data.Proxy
 import Data.Type.List
+import Data.Type.Function
 import Data.Functor.Compose
 import GHC.TypeLits
+import GHC.Exts (Constraint)
 
 -- | Type synonym for readability. Constructs a the type of functions from
 -- the pattern of @'W'@'s specified by 'list' to 'result'.
-type Fn list result = Foldr (->) result (Map W list)
+-- type Fn list result = Foldr (->) result (Map W list)
 
 data family Fun (list :: [Nat]) (result :: *) :: *
 newtype instance Fun '[] result = FunNil { getFunNil :: result }
@@ -54,27 +56,38 @@ instance Functor (Fun '[]) where
 instance Functor (Fun xs) => Functor (Fun (x ': xs)) where
     fmap f (FunCons g) = FunCons (fmap f . g)
 
-newtype F list result = F { unF :: Fn list result }
+-- type ListSum n ns = Triplet n (Sum ns) (Sum (n ': ns))
 
-type ListSum n ns = Triplet n (Sum ns) (n + Sum ns)
+type Wof list = W (Sum list)
+-- type Wof = W :.: Sum
 
-class Church (head :: Nat) (tail :: [Nat]) where
-    construct :: Proxy head -> Proxy tail -> W head -> Fun tail (W (head + Sum tail))
-    inspect :: Proxy head -> Proxy tail -> (W head -> Fun tail result) -> W (head + Sum tail) -> result
+class Church (list :: [Nat]) where
+    construct :: Fun list (Wof list)
+    inspect :: Fun list result -> Wof list -> result
 
-instance Church head '[] where
-    construct _ _ w = FunNil w
-    inspect _ _ f w = getFunNil (f w)
+instance Church '[n] where
+    construct = FunCons FunNil
+    inspect = ((.).(.)) getFunNil getFunCons
 
-instance (ListSum head (n ': ns), Functor (Fun ns), Church n ns) => Church head (n ': ns) where
+type family AllKnown (list :: [Nat]) :: Constraint where
+    AllKnown '[] = ()
+    AllKnown (x ': xs) = ( BothKnown x
+                         , BothKnown (x + Sum xs)
+                         , AllKnown xs
+                         )
 
-    construct _ _ head = FunCons f
-      where
-        f :: W n -> Fun ns (W (head + Sum (n ': ns)))
-        f n = fmap (head >+<) x
-          where
-            x :: Fun ns (W (Sum (n ': ns)))
-            x = construct (Proxy :: Proxy n) (Proxy :: Proxy ns) n
-    inspect _ _ f w =
-        let (head, low) = split w
-        in inspect (Proxy :: Proxy n) (Proxy :: Proxy ns) (getFunCons (f head)) low
+instance ( AllKnown (m ': n ': ns)
+         , Functor (Fun ns)
+         , Church (n ': ns)
+         ) => Church (m ': n ': ns) where
+
+    construct = FunCons $ (`fmap` construct) . (>+<)
+    -- construct = FunCons f
+    --   where
+    --     f :: W m -> Fun (n ': ns) (Wof (m ': n ': ns))
+    --     f h = fmap (h >+<) construct
+
+    inspect = (. split) . (uncurry . (inspect .) . getFunCons)
+    -- inspect f = uncurry (inspect . getFunCons f) . split
+    -- inspect f w = let (head, low) = split w
+    --               in inspect (getFunCons f head) low
