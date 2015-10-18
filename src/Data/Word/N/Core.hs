@@ -49,6 +49,7 @@ type Triplet m n o = ( BothKnown m
                      , BothKnown n
                      , BothKnown o
                      , (m + n) ~ o
+                     , (n + m) ~ o
                      )
 
 -- | Type representing a sequence of @n@ bits, or a non-negative integer smaller than @2^n@.

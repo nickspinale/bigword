@@ -2,6 +2,10 @@
 -- See Hoogle, http://www.haskell.org/hoogle/
 
 
+-- | Fixed-size bit-vectors
+--   
+--   Fixed-size bit-vectors as wrapped Integers, using GHC.TypeLits.
+--   Inspired by the largeword package by Dominic Steinitz.
 @package bigword
 @version 0.1.0.0
 
@@ -17,7 +21,7 @@ data W (n :: Nat)
 type BothKnown n = (KnownNat n, KnownNat (2 ^ n))
 
 -- | Synonym for readability
-type Triplet m n o = (BothKnown m, BothKnown n, BothKnown o, (m + n) ~ o)
+type Triplet m n o = (BothKnown m, BothKnown n, BothKnown o, (m + n) ~ o, (n + m) ~ o)
 
 -- | Appends two <tt><a>W</a></tt>'s, treating the first's bits as more
 --   significant.
@@ -205,8 +209,104 @@ LittleEndian :: a -> LittleEndian a
 type BothKnown n = (KnownNat n, KnownNat (2 ^ n))
 
 -- | Synonym for readability
-type Triplet m n o = (BothKnown m, BothKnown n, BothKnown o, (m + n) ~ o)
+type Triplet m n o = (BothKnown m, BothKnown n, BothKnown o, (m + n) ~ o, (n + m) ~ o)
 
 
 -- | Useful functions for working with <tt><a>W</a> n</tt>'s.
 module Data.Word.N.Util
+slice :: (Triplet n o no, Triplet m no mno) => Proxy o -> W mno -> W n
+
+-- | Reads "d divides n", and allows for generic construction and
+--   inpsection.
+class (KnownNat d, KnownNat n) => (:|:) d n
+
+-- | Construct an applicative action that results in a <tt><a>W</a> n</tt>
+--   from one that results in a <tt><a>W</a> d</tt>, where <tt>d | n</tt>.
+--   See <a>assembleR</a> and <a>assembleL</a> for examples.
+assemble :: ((:|:) d n, Applicative f) => (forall a b c. Triplet a b c => W a -> W b -> W c) -> f (W d) -> f (W n)
+
+-- | Construct a means of pushing a <tt><a>W</a> n</tt> into a monoid from
+--   a means of pushing a <tt><a>W</a> d</tt> into the monoid, where <tt>d
+--   | n</tt>. See <a>disassembleR</a> and <a>disassembleL</a> for
+--   examples.
+disassemble :: ((:|:) d n, Monoid m) => (W d -> m) -> (W n -> m)
+
+-- | Same as assembleR, but treats the first results as less significant.
+--   
+--   <pre>
+--   assembleL = 'assemble' (flip ('&gt;+&lt;'))
+--   </pre>
+--   
+--   Example using attoparsec to parse a little-endian unsigned 128-bit
+--   integer:
+--   
+--   <pre>
+--   import Data.Attoparsec.ByteString
+--   import Data.Word
+--   
+--   anyWord128LE :: Parser (W 128)
+--   anyWord128LE = assembleL $ fmap (fromIntegral :: Word8 -&gt; W 8) anyWord8
+--   </pre>
+assembleL :: (Applicative f, d :|: n) => f (W d) -> f (W n)
+
+-- | Transforms an applicative action that results in a <tt><a>W</a> d</tt>
+--   to on that results in a <tt><a>W</a> n</tt>, provided that
+--   <tt>d|n</tt> (hence the <tt>:|:</tt> constraint), treating the first
+--   results as more significant.
+--   
+--   <pre>
+--   assembleR = 'assemble' ('&gt;+&lt;')
+--   </pre>
+--   
+--   Here's the example above, modified to parse in network-byte order:
+--   
+--   <pre>
+--   anyWord128BE :: Parser (W 128)
+--   anyWord128BE = assembleR $ fmap (fromIntegral :: Word8 -&gt; W 8) anyWord8
+--   </pre>
+assembleR :: (Applicative f, d :|: n) => f (W d) -> f (W n)
+
+-- | Same as disassembleL, but combines less significant chunks first.
+--   
+--   <pre>
+--   disassembleL f = getDual . disassemble (Dual . f)
+--   </pre>
+--   
+--   Example using a bytestrings
+--   
+--   <pre>
+--   import Data.ByteString.Builder
+--   
+--   word128LE :: W 128 -&gt; Builder
+--   word128LE = disassembleL (word8 . (fromIntegral :: W 8 -&gt; Word8))
+--   </pre>
+disassembleL :: (Monoid m, d :|: n) => (W d -> m) -> (W n -> m)
+
+-- | Breaks a <tt><a>W</a> n</tt> into its constituent <tt>d</tt>-sized
+--   chunks, and combines them according to the provided monoid. More
+--   significant chunks are combined first.
+--   
+--   <pre>
+--   disassembleR = disassemble
+--   </pre>
+--   
+--   <tt>disassembleL</tt>'s example adjusted to build in network-byte
+--   order:
+--   
+--   <pre>
+--   import Data.ByteString.Builder
+--   
+--   word128BE :: W 128 -&gt; Builder
+--   word128BE = disassembleR (word8 . (fromIntegral :: W 8 -&gt; Word8))
+--   </pre>
+disassembleR :: (Monoid m, d :|: n) => (W d -> m) -> (W n -> m)
+
+-- | Displays a bitvector's bits in big-endian order.
+showBits :: (1 :|: n) => W n -> String
+
+-- | Displays a bitvector's bits in big-endian order, in groups of four as
+--   hexadecimal digits.
+showHex :: (4 :|: n) => W n -> String
+instance (eq ~ (d Data.Type.Equality.== n), Data.Word.N.Util.Divides eq d n) => d Data.Word.N.Util.:|: n
+instance (GHC.TypeLits.KnownNat d, GHC.TypeLits.KnownNat n, 'GHC.Types.True ~ (d Data.Type.Equality.== n), d ~ n) => Data.Word.N.Util.Divides 'GHC.Types.True d n
+instance (Data.Word.N.Core.Triplet d n' n, Data.Word.N.Util.Divides (d Data.Type.Equality.== n') d n', 'GHC.Types.False ~ (d Data.Type.Equality.== n)) => Data.Word.N.Util.Divides 'GHC.Types.False d n
