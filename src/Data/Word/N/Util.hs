@@ -44,37 +44,43 @@ import GHC.TypeLits
 -- the pattern of @'W'@'s specified by 'list' to 'result'.
 type Fn list result = Foldr (->) result (Map W list)
 
-data family Fun (list :: [Nat]) (result :: *) :: *
-newtype instance Fun '[] result = FunNil { getFunNil :: result }
-newtype instance Fun (x ': xs) result = FunCons { getFunCons :: W x -> Fun xs result }
+-- data family Fun (list :: [Nat]) (result :: *) :: *
+-- newtype instance Fun '[] result = FunNil { getFunNil :: result }
+-- newtype instance Fun (x ': xs) result = FunCons { getFunCons :: W x -> Fun xs result }
 
-instance Functor (Fun '[]) where
-    fmap f (FunNil result) = FunNil (f result)
+-- instance Functor (Fun '[]) where
+--     fmap f (FunNil result) = FunNil (f result)
 
-instance Functor (Fun xs) => Functor (Fun (x ': xs)) where
-    fmap f (FunCons g) = FunCons (fmap f . g)
+-- instance Functor (Fun xs) => Functor (Fun (x ': xs)) where
+--     fmap f (FunCons g) = FunCons (fmap f . g)
 
-newtype F list result = F { unF :: Fn list result }
+newtype Fun list result = Fun { unFun :: Fn list result }
 
 type ListSum n ns = Triplet n (Sum ns) (n + Sum ns)
 
 class Church (head :: Nat) (tail :: [Nat]) where
-    construct :: Proxy head -> Proxy tail -> W head -> Fun tail (W (head + Sum tail))
-    inspect :: Proxy head -> Proxy tail -> (W head -> Fun tail result) -> W (head + Sum tail) -> result
+    construct :: Fun (head ': tail) (W (head + Sum tail))
+    inspect :: Fun (head ': tail) result -> W (head + Sum tail) -> result
 
 instance Church head '[] where
-    construct _ _ w = FunNil w
-    inspect _ _ f w = getFunNil (f w)
+    construct = Fun id
+    -- inspect _ _ f w = unFun (f w)
 
-instance (ListSum head (n ': ns), Functor (Fun ns), Church n ns) => Church head (n ': ns) where
+instance (ListSum head (n ': ns), Church n ns) => Church head (n ': ns) where
 
-    construct _ _ head = FunCons f
-      where
-        f :: W n -> Fun ns (W (head + Sum (n ': ns)))
-        f n = fmap (head >+<) x
-          where
-            x :: Fun ns (W (Sum (n ': ns)))
-            x = construct (Proxy :: Proxy n) (Proxy :: Proxy ns) n
-    inspect _ _ f w =
+    -- construct _ _ head = Fun (unFun . f)
+    --   where
+    --     f :: W n -> Fun ns (W (head + Sum (n ': ns)))
+    --     f n = Fun $ (head >+<) . (unFun $ construct (Proxy :: Proxy n) (Proxy :: Proxy ns) undefined)
+--     construct _ _ head = undefined -- Fun (\x -> f (unFun)
+--       where
+--         f :: W n -> Fun ns (W (head + Sum (n ': ns)))
+--         f n = Fun ((head >+<) . unFun x)
+--           where
+--             x :: Fun ns (W (Sum (n ': ns)))
+--             x = undefined
+            -- x = construct (Proxy :: Proxy n) (Proxy :: Proxy ns) n
+            -- x = construct (Proxy :: Proxy n) (Proxy :: Proxy ns) n
+    inspect f w =
         let (head, low) = split w
-        in inspect (Proxy :: Proxy n) (Proxy :: Proxy ns) (getFunCons (f head)) low
+        in inspect (Fun (unFun f head) :: Fun (n ': ns) result) low
