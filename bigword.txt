@@ -237,8 +237,8 @@ disassemble :: ((:|:) d n, Monoid m) => (W d -> m) -> (W n -> m)
 --   assembleL = 'assemble' (flip ('&gt;+&lt;'))
 --   </pre>
 --   
---   Example using attoparsec to parse a little-endian unsigned 128-bit
---   integer:
+--   Here's the example above, modified to parse in little-endian byte
+--   order:
 --   
 --   <pre>
 --   import Data.Attoparsec.ByteString
@@ -258,9 +258,13 @@ assembleL :: (Applicative f, d :|: n) => f (W d) -> f (W n)
 --   assembleR = 'assemble' ('&gt;+&lt;')
 --   </pre>
 --   
---   Here's the example above, modified to parse in network-byte order:
+--   Example using attoparsec to parse a big-endian unsigned 128-bit
+--   integer:
 --   
 --   <pre>
+--   import Data.Attoparsec.ByteString
+--   import Data.Word
+--   
 --   anyWord128BE :: Parser (W 128)
 --   anyWord128BE = assembleR $ fmap (fromIntegral :: Word8 -&gt; W 8) anyWord8
 --   </pre>
@@ -272,7 +276,8 @@ assembleR :: (Applicative f, d :|: n) => f (W d) -> f (W n)
 --   disassembleL f = getDual . disassemble (Dual . f)
 --   </pre>
 --   
---   Example using a bytestrings
+--   <tt>disassembleR</tt>'s example adjusted to build in little-endian
+--   byte order:
 --   
 --   <pre>
 --   import Data.ByteString.Builder
@@ -290,8 +295,7 @@ disassembleL :: (Monoid m, d :|: n) => (W d -> m) -> (W n -> m)
 --   disassembleR = disassemble
 --   </pre>
 --   
---   <tt>disassembleL</tt>'s example adjusted to build in network-byte
---   order:
+--   Example using a bytestrings
 --   
 --   <pre>
 --   import Data.ByteString.Builder
@@ -315,5 +319,33 @@ instance (Data.Word.N.Core.Triplet d n' n, Data.Word.N.Util.Divides (d Data.Type
 -- | Provides a church-encoding means of inspecting and constructing
 --   bit-vectors. This module is currenty a work in progress.
 module Data.Word.N.Church
-type Fn list result = Foldr (->) result list
-class NonEmpty (ns :: [Nat])
+
+-- | <tt><a>Fn</a></tt> is not injective, but <tt><a>Fun</a></tt> is, which
+--   is necessary for type decidability. However, this abstraction is not
+--   easily optimized away by GHC, so this will soon change.
+
+-- | Class for nonempty type-level lists of <tt><a>Nat</a></tt>'s. This is
+--   the core of the heterogeneous-church-encoded-vector-like interface.
+class Church (list :: [Nat])
+
+-- | Given components, return their concatenation.
+construct :: Church list => Fun list (Wof list)
+
+-- | Operate on a bit-vector component-wise, where the size of its
+--   components are determined by <tt>list</tt>.
+inspect :: Church list => Fun list result -> Wof list -> result
+
+-- | Type synonym for readability. Constructs a the type of functions from
+--   the pattern of <tt><a>W</a></tt>'s specified by <tt>list</tt> to
+--   <tt>result</tt>.
+type Fn list result = Foldr (->) result (Map W list)
+
+-- | Type synonym for readability
+type Wof list = W (Sum list)
+
+-- | Constraint synonym for readablility
+type ListSum (n :: Nat) (ns :: [Nat]) = Triplet n (Sum ns) (n + Sum ns)
+instance GHC.Base.Functor (Data.Word.N.Church.Fun '[])
+instance GHC.Base.Functor (Data.Word.N.Church.Fun xs) => GHC.Base.Functor (Data.Word.N.Church.Fun (x : xs))
+instance Data.Word.N.Church.Church '[n]
+instance (Data.Word.N.Church.ListSum m (n : ns), GHC.Base.Functor (Data.Word.N.Church.Fun ns), Data.Word.N.Church.Church (n : ns)) => Data.Word.N.Church.Church (m : n : ns)
