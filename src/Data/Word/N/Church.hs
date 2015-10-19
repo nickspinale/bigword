@@ -31,11 +31,14 @@
 ---------------------------------------------------------
 
 module Data.Word.N.Church
-    ( Fn
-    , Fun(..)
-    , Wof
+    (
+    -- * Core types
+      Fun(..)
     , Church(..)
-    , AllKnown
+    -- * Convenience
+    , Fn
+    , Wof
+    , ListSum
     ) where
 
 import Data.Word.N
@@ -83,25 +86,22 @@ instance Church '[n] where
     inspect = ((.).(.)) getFunNil getFunCons
 
 -- | Constraint synonym for readablility
-type family AllKnown (list :: [Nat]) :: Constraint where
-    AllKnown '[] = ()
-    AllKnown (x ': xs) = ( BothKnown x
-                         , BothKnown (x + Sum xs)
-                         , AllKnown xs
-                         )
+type ListSum (n :: Nat) (ns :: [Nat]) = Triplet n (Sum ns) (n + Sum ns)
 
-instance ( AllKnown (m ': n ': ns)
+instance ( ListSum m (n ': ns)
          , Functor (Fun ns)
          , Church (n ': ns)
          ) => Church (m ': n ': ns) where
 
     construct = FunCons $ (`fmap` construct) . (>+<)
+    -- EQUIVALENT:
     -- construct = FunCons f
     --   where
     --     f :: W m -> Fun (n ': ns) (Wof (m ': n ': ns))
     --     f h = fmap (h >+<) construct
 
     inspect = (. split) . (uncurry . (inspect .) . getFunCons)
+    -- EQUIVALENT:
     -- inspect f = uncurry (inspect . getFunCons f) . split
     -- inspect f w = let (head, low) = split w
     --               in inspect (getFunCons f head) low
