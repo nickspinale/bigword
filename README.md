@@ -71,8 +71,8 @@ As you can see, these generic solutions are simpler and more typesafe, and thus 
 
 ### Non-hackage Dependencies
 
-* [mod-n](https://nickspinale.com/mod-n)
-* [data-type-utils](https://nickspinale.com/data-type-utils)
+* [mod-n](https://github.com/nickspinale/mod-n)
+* [data-type-util](https://github.com/nickspinale/data-type-util)
 
 If you have any questions or suggestions, feel free to contact me at by [email](mailto:spinalen@carleton.edu).
 
