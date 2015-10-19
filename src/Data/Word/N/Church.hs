@@ -32,7 +32,10 @@
 
 module Data.Word.N.Church
     ( Fn
-    , NonEmpty(..)
+    , Fun(..)
+    , Wof
+    , Church(..)
+    , AllKnown
     ) where
 
 import Data.Word.N
@@ -47,9 +50,67 @@ import Data.Functor.Compose
 import GHC.TypeLits
 import GHC.Exts (Constraint)
 
--- newtype View m n = View { getView :: W (m + n) }
+-- | Type synonym for readability. Constructs a the type of functions from
+-- the pattern of @'W'@'s specified by 'list' to 'result'.
+type Fn list result = Foldr (->) result (Map W list)
 
-type Fn list result = Foldr (->) result list
+-- | @'Fn'@ is not injective, but @'Fun'@ is, which is necessary for type decidability.
+-- However, this abstraction is not easily optimized away by GHC, so this will soon change.
+data family Fun (list :: [Nat]) (result :: *) :: *
+newtype instance Fun '[] result = FunNil { getFunNil :: result }
+newtype instance Fun (x ': xs) result = FunCons { getFunCons :: W x -> Fun xs result }
+
+instance Functor (Fun '[]) where
+    fmap f (FunNil result) = FunNil (f result)
+
+instance Functor (Fun xs) => Functor (Fun (x ': xs)) where
+    fmap f (FunCons g) = FunCons (fmap f . g)
+
+-- | Type synonym for readability
+type Wof list = W (Sum list)
+-- type Wof = W :.: Sum
+
+-- | Class for nonempty type-level lists of @'Nat'@'s.
+-- This is the core of the heterogeneous-church-encoded-vector-like interface.
+class Church (list :: [Nat]) where
+    -- | Given components, return their concatenation.
+    construct :: Fun list (Wof list)
+    -- | Operate on a bit-vector component-wise, where the size of its components are determined by `list`.
+    inspect :: Fun list result -> Wof list -> result
+
+instance Church '[n] where
+    construct = FunCons FunNil
+    inspect = ((.).(.)) getFunNil getFunCons
+
+-- | Constraint synonym for readablility
+type family AllKnown (list :: [Nat]) :: Constraint where
+    AllKnown '[] = ()
+    AllKnown (x ': xs) = ( BothKnown x
+                         , BothKnown (x + Sum xs)
+                         , AllKnown xs
+                         )
+
+instance ( AllKnown (m ': n ': ns)
+         , Functor (Fun ns)
+         , Church (n ': ns)
+         ) => Church (m ': n ': ns) where
+
+    construct = FunCons $ (`fmap` construct) . (>+<)
+    -- construct = FunCons f
+    --   where
+    --     f :: W m -> Fun (n ': ns) (Wof (m ': n ': ns))
+    --     f h = fmap (h >+<) construct
+
+    inspect = (. split) . (uncurry . (inspect .) . getFunCons)
+    -- inspect f = uncurry (inspect . getFunCons f) . split
+    -- inspect f w = let (head, low) = split w
+    --               in inspect (getFunCons f head) low
+
+-----------------
+-- EVEN MORE EXPERIMENTAL
+-----------------
+
+-- newtype View m n = View { getView :: W (m + n) }
 
 -- newtype Ws (list :: [Nat])
 
@@ -63,6 +124,7 @@ type Fn list result = Foldr (->) result list
 --       -> t (Foldr op zero a)
 --       -> (Foldr t list) r -> r
 
-class NonEmpty (ns :: [Nat]) where
+-- class NonEmpty (ns :: [Nat]) where
 
 -- inspect :: (Applicative f, NonEmpty ns) => (forall n. => (W n -> f (W n))) -> Ws
+

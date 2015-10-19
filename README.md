@@ -1,6 +1,6 @@
 # bigword
 
-Fixed-size bit-vectors as wrapped Integers, using GHC.TypeLits.
+Fixed-size bit-vectors as wrapped Integers, using `GHC.TypeLits`.
 Inspired by the [largeword](https://hackage.org/packages/largeword) package by Dominic Steinitz.
 
 ### Motivation
@@ -45,7 +45,7 @@ It will soon provide an church-encoding-like interface to `W`'s, similar to but 
 
 ### Examples
 
-`assembleR` transforms an applicative action that results in a @'W' d@ to on that results in a @'W' n@, provided that @d|n@ (hence the @:|:@ constraint), treating the first results as more significant.
+`assembleR` transforms an applicative action that results in a `W d` to on that results in a `W n`, provided that `d | n` (hence the `:|:` constraint), treating the first results as more significant.
 Here is an example using attoparsec to parse a big-endian unsigned 128-bit integer.
 
 ```haskell
@@ -56,7 +56,7 @@ anyWord128BE :: Parser (W 128)
 anyWord128BE = assembleR $ fmap (fromIntegral :: Word8 -> W 8) anyWord8
 ```
 
-`disassembleR` breaks a @'W' n@ into its constituent @d@-sized chunks, and combines them according to the provided monoid.
+`disassembleR` breaks a `W n` into its constituent `d`-sized chunks, and combines them according to the provided monoid.
 More significant chunks are combined first.
 Here is an example of creating a `Data.ByteString.Builder.builder` from a `W 128`:
 
