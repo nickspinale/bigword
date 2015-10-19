@@ -69,6 +69,13 @@ word128BE = disassembleR (word8 . (fromIntegral :: W 8 -> Word8))
 
 As you can see, these generic solutions are simpler and more typesafe, and thus less error prone, than the ad-hoc solutions described in the motivations section.
 
+### Non-hackage Dependencies
+
+* [mod-n](https://nickspinale.com/mod-n)
+* [data-type-utils](https://nickspinale.com/data-type-utils)
+
+If you have any questions or suggestions, feel free to contact me at by [email](mailto:spinalen@carleton.edu).
+
 ### Additional Information
 
 This package's complete documentation can be found here: [nickspinale.com/bigword](https://nickspinale.com/bigword)
