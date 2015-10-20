@@ -1,7 +1,7 @@
 # bigword
 
 Fixed-size bit-vectors as wrapped Integers, using `GHC.TypeLits`.
-Inspired by the [largeword](https://hackage.org/packages/largeword) package by Dominic Steinitz.
+Inspired by the [largeword](https://hackage.org/packages/largeword) package by Dominic Steinitz and the [fixed-vector](https://hackage.haskell.org/package/fixed-vector-0.8.1.0) package by Aleksey Khudyakov.
 
 ### Motivation
 
@@ -78,6 +78,6 @@ If you have any questions or suggestions, feel free to contact me at by [email](
 
 ### Additional Information
 
-This package's complete documentation can be found here: [nickspinale.com/bigword](https://nickspinale.com/bigword)
+This package's complete documentation can be found here: [nickspinale.com/bigword](http://nickspinale.com/bigword)
 
 If you have any questions or suggestions, feel free to contact me at by [email](mailto:spinalen@carleton.edu).
