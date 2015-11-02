@@ -20,14 +20,14 @@ module Data.Word.N
     , (>+<)
     , split
 
-    -- * Conversion Classes
-    , ToW(..)
-    , FromW(..)
-    , AccSums
-
     -- * Convenience
     , BothKnown
     , Triplet
+    , AccSums
+
+    -- * Conversion Classes
+    , ToW(..)
+    , FromW(..)
     ) where
 
 import Data.Word.N.Conversion
