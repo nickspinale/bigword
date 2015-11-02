@@ -32,4 +32,3 @@ module Data.Word.N
 
 import Data.Word.N.Conversion
 import Data.Word.N.Core
-import Data.Word.N.TupleInstances
