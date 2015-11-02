@@ -32,13 +32,6 @@
 
 module Data.Word.N.Church
     (
-    -- * Core types
-      Fun(..)
-    , Church(..)
-    -- * Convenience
-    , Fn
-    , Wof
-    , ListSum
     ) where
 
 import Data.Word.N
@@ -55,56 +48,69 @@ import GHC.Exts (Constraint)
 
 -- | Type synonym for readability. Constructs a the type of functions from
 -- the pattern of @'W'@'s specified by 'list' to 'result'.
-type Fn list result = Foldr (->) result (Map W list)
+type Fn f list result = Foldr (->) result (Map f list)
 
 -- | @'Fn'@ is not injective, but @'Fun'@ is, which is necessary for type decidability.
--- However, this abstraction is not easily optimized away by GHC, so this will soon change.
-data family Fun (list :: [Nat]) (result :: *) :: *
-newtype instance Fun '[] result = FunNil { getFunNil :: result }
-newtype instance Fun (x ': xs) result = FunCons { getFunCons :: W x -> Fun xs result }
+newtype Fun (f :: k -> *) (list :: [k]) (result :: *) = Fun { getFun :: Fn f list result }
 
-instance Functor (Fun '[]) where
-    fmap f (FunNil result) = FunNil (f result)
+newtype Ws (list :: [Nat]) = Ws { getWs :: W (Sum list) }
 
-instance Functor (Fun xs) => Functor (Fun (x ': xs)) where
-    fmap f (FunCons g) = FunCons (fmap f . g)
+class Arity (list :: [k]) where
+    accum :: (forall x xs. fs (x ': xs) -> f x -> fs xs) -> (fs '[] -> result) -> fs list -> Fun f list result
+    apply :: (forall x xs. fs (x ': xs) -> (f x, fs xs)) -> fs list -> Fun f list result -> result
 
--- | Type synonym for readability
-type Wof list = W (Sum list)
--- type Wof = W :.: Sum
+instance Arity '[] where
+    accum f g t = Fun (g t)
+    apply f t h = getFun h
+
+instance Arity xs => Arity (x ': xs) where
+    accum f g t = Fun $ \a -> getFun (accum f g (f t a))
+    apply f t h = case f t of (a, u) -> apply f u (Fun (getFun h a))
+
+type family AllSatisfy (c :: k -> Constraint) (list :: [k]) :: Constraint where
+    AllSatisfy c '[] = ()
+    AllSatisfy c (x ': xs) = (c x, AllSatisfy c xs)
+
+class Vector (c :: k -> Constraint) (f :: k -> *) (fs :: [k] -> *) where
+    hcons :: (c x, AllSatisfy c xs) => f x -> fs xs -> fs (x ': xs)
+    construct :: Arity list => Fun f list (fs list)
+    inspect :: Arity list => fs list -> Fun f list result -> result
+
+instance Vector KnownNat W Ws where
+    hcons x (Ws xs) = Ws (x >+< xs)
 
 -- | Class for nonempty type-level lists of @'Nat'@'s.
 -- This is the core of the heterogeneous-church-encoded-vector-like interface.
-class Church (list :: [Nat]) where
-    -- | Given components, return their concatenation.
-    construct :: Fun list (Wof list)
-    -- | Operate on a bit-vector component-wise, where the size of its components are determined by `list`.
-    inspect :: Fun list result -> Wof list -> result
+-- class Church (list :: [Nat]) where
+--     -- | Given components, return their concatenation.
+--     construct :: Fun list (Wof list)
+--     -- | Operate on a bit-vector component-wise, where the size of its components are determined by `list`.
+--     inspect :: Fun list result -> Wof list -> result
 
-instance Church '[n] where
-    construct = FunCons FunNil
-    inspect = ((.).(.)) getFunNil getFunCons
+-- instance Church '[n] where
+--     construct = FunCons FunNil
+--     inspect = ((.).(.)) getFunNil getFunCons
 
--- | Constraint synonym for readablility
-type ListSum (n :: Nat) (ns :: [Nat]) = Triplet n (Sum ns) (n + Sum ns)
+-- -- | Constraint synonym for readablility
+-- type ListSum (n :: Nat) (ns :: [Nat]) = Triplet n (Sum ns) (n + Sum ns)
 
-instance ( ListSum m (n ': ns)
-         , Functor (Fun ns)
-         , Church (n ': ns)
-         ) => Church (m ': n ': ns) where
+-- instance ( ListSum m (n ': ns)
+--          , Functor (Fun ns)
+--          , Church (n ': ns)
+--          ) => Church (m ': n ': ns) where
 
-    construct = FunCons $ (`fmap` construct) . (>+<)
-    -- EQUIVALENT:
-    -- construct = FunCons f
-    --   where
-    --     f :: W m -> Fun (n ': ns) (Wof (m ': n ': ns))
-    --     f h = fmap (h >+<) construct
+--     construct = FunCons $ (`fmap` construct) . (>+<)
+--     -- EQUIVALENT:
+--     -- construct = FunCons f
+--     --   where
+--     --     f :: W m -> Fun (n ': ns) (Wof (m ': n ': ns))
+--     --     f h = fmap (h >+<) construct
 
-    inspect = (. split) . (uncurry . (inspect .) . getFunCons)
-    -- EQUIVALENT:
-    -- inspect f = uncurry (inspect . getFunCons f) . split
-    -- inspect f w = let (head, low) = split w
-    --               in inspect (getFunCons f head) low
+--     inspect = (. split) . (uncurry . (inspect .) . getFunCons)
+--     -- EQUIVALENT:
+--     -- inspect f = uncurry (inspect . getFunCons f) . split
+--     -- inspect f w = let (head, low) = split w
+--     --               in inspect (getFunCons f head) low
 
 -----------------
 -- EVEN MORE EXPERIMENTAL

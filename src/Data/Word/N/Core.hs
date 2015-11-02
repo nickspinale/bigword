@@ -116,7 +116,11 @@ instance BothKnown n => FiniteBits (W n) where
 
 infixr 6 >+<
 
-(>+<) :: forall m n o. Triplet m n o => W m -> W n -> W o
+(>+<) :: forall m n o. ( BothKnown m
+                       , BothKnown n
+                       , BothKnown o
+                       , (m + n) ~ o
+                       ) => W m -> W n -> W o
 
 (W x) >+< (W y) = fromInteger $ shift (toInteger x) (natValInt' (proxy# :: Proxy# n)) .|. toInteger y
 
@@ -136,8 +140,11 @@ infixr 6 >+<
 -- >        (b, y) = split x
 -- >        (c, d) = split y
 
-split :: forall m n o. Triplet m n o => W o -> (W m, W n)
-
+split :: forall m n o. ( BothKnown m
+                       , BothKnown n
+                       , BothKnown o
+                       , (m + n) ~ o
+                       ) => W o -> (W m, W n)
 split (W z) = (fromInteger $ shiftR (toInteger z) (natValInt' (proxy# :: Proxy# n)), fromIntegral z)
 
 -------------------------------
