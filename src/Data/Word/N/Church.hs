@@ -41,43 +41,35 @@ import Data.Functor.Identity
 import Data.Function
 import Data.Proxy
 import Data.Type.List
-import Data.Type.Function
+import Data.Type.Peano
 import Data.Functor.Compose
 import GHC.TypeLits
 import GHC.Exts (Constraint)
 
-type Fn list result = Foldr (->) result (Map W list)
+type family Fn (list :: [Nat]) (result :: *) :: * where
+    Fn '[] result = result
+    Fn (n ': ns) result = W n -> Fn ns result
 
 newtype Fun (list :: [Nat]) (result :: *) = Fun { getFun :: Fn list result }
 
-newtype Ws (list :: [Nat]) = Ws { getWs :: W (Sum list) }
-
-wuncons :: ( BothKnown n
-         , BothKnown (Sum ns)
-         , BothKnown (n + Sum ns)
-         ) => Ws (n ': ns) -> (W n, Ws ns)
-wuncons = fmap Ws . split . getWs
-
-wcons :: ( BothKnown n
-         , BothKnown (Sum ns)
-         , BothKnown (n + Sum ns)
-         ) => W n ->  Ws ns -> Ws (n ': ns)
-wcons n ns = Ws $ n >+< getWs ns
-
 class Church (list :: [Nat]) where
-    -- accum :: (forall x xs. Ws (x ': xs) -> W x -> Ws xs) -> (Ws '[] -> result) -> Ws list -> Fun list result
-    inspect :: Ws list -> Fun list result -> result
+    construct :: Fun list (W (Sum list))
+    inspect :: W (Sum list) -> Fun list result -> result
 
 instance Church '[] where
-    -- accum f g t = Fun (g t)
-    inspect t h = getFun h
+    construct = Fun 0
+    inspect = const getFun
 
-instance (BothKnown x, Church xs) => Church (x ': xs) where
-    -- accum f g t = Fun $ \a -> getFun (accum f g (f t a))
-    inspect t h = case wuncons t of (a, u) -> inspect u (Fun (getFun h a))
+instance (BothKnown n, BothKnown (Sum ns), BothKnown (n + Sum ns), Church ns) => Church (n ': ns) where
+    -- construct = Fun $ \w -> fmap (w >+<) (getFun (construct :: Fun xs (W (Sum xs))))
+    inspect :: W (Sum (n ': ns)) -> Fun (n ': ns) result -> result
+    inspect w (Fun f) = case split w of (x :: W n, xs :: W (Sum ns)) -> inspect xs (Fun (f x) :: Fun ns result)
+
+-- accum :: (Applicative f) => f (W n) -> f (W ns)
+-- accum = undefined
 
 -- class Arity (list :: [Nat]) where
---     accum :: (forall x xs. Ws (x ': xs) -> W x -> Ws xs) -> (Ws '[] -> result) -> Ws list -> Fun list result
+--     accum :: Applicative f => f
 --     apply :: (forall x xs. Ws (x ': xs) -> (W x, Ws xs)) -> Ws list -> Fun list result -> result
 
 -- instance Arity '[] where
