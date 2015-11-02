@@ -14,13 +14,12 @@
 -- Portability : portable
 --
 -- Classes for converting to and from the @'W' n@ type.
+-- @'ToW'@ and @'FromW'@ interpret the leftmost members of tuples as the most significant.
 ---------------------------------------------------------
 
 module Data.Word.N.Conversion
     ( ToW(..)
     , FromW(..)
-    , BigEndian(..)
-    , LittleEndian(..)
     ) where
 
 import Data.Word.N.Core
@@ -61,7 +60,6 @@ instance FromW 16 Int16  where fromW = fromIntegral
 instance FromW 32 Int32  where fromW = fromIntegral
 instance FromW 64 Int64  where fromW = fromIntegral
 
--- | Wrapper for tuples. @'ToW'@ and @'FromW'@ interpret the leftmost members of such tuples as the most significant.
 newtype BigEndian a = BigEndian { fromBigEndian :: a }
 
 -- | Wrapper for tuples. @'ToW'@ and @'FromW'@ interpret the rightmost members of such tuples as the most significant.

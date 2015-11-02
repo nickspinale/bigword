@@ -23,8 +23,7 @@ module Data.Word.N
     -- * Conversion Classes
     , ToW(..)
     , FromW(..)
-    , BigEndian(..)
-    , LittleEndian(..)
+    , AccSums
 
     -- * Convenience
     , BothKnown

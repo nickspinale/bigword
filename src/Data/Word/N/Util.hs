@@ -138,9 +138,7 @@ class (KnownNat d, KnownNat n) => d :|: n where
     -- | Construct an applicative action that results in a @'W' n@ from one that results in a @'W' d@, where @d | n@.
     -- See 'assembleR' and 'assembleL' for examples.
     assemble :: forall f. Applicative f
-             => ( forall a b c. Triplet a b c
-                => W a -> W b -> W c
-                )
+             => (forall a b c. (Triplet a b c, Triplet b a c) => W a -> W b -> W c)
              -> f (W d)
              -> f (W n)
 
@@ -160,9 +158,7 @@ instance (eq ~ (d == n), Divides eq d n) => d :|: n where
 class (KnownNat d, KnownNat n, eq ~ (d == n)) => Divides (eq :: Bool) (d :: Nat) (n :: Nat) where
 
     assemble' :: forall f. Applicative f
-             => ( forall a b c. Triplet a b c
-                => W a -> W b -> W c
-                )
+             => (forall a b c. (Triplet a b c, Triplet b a c) => W a -> W b -> W c)
              -> f (W d)
              -> f (W n)
 
@@ -174,6 +170,7 @@ instance {-# OVERLAPPING #-} (KnownNat d, KnownNat n, True ~ (d == n), d ~ n) =>
     disassemble' = id
 
 instance {-# OVERLAPPABLE #-} ( Triplet d n' n
+                              , Triplet n' d n
                               , Divides (d == n') d n'
                               , False ~ (d == n)
                               ) => Divides False d n where
