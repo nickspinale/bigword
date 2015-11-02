@@ -46,38 +46,59 @@ import Data.Functor.Compose
 import GHC.TypeLits
 import GHC.Exts (Constraint)
 
--- | Type synonym for readability. Constructs a the type of functions from
--- the pattern of @'W'@'s specified by 'list' to 'result'.
-type Fn f list result = Foldr (->) result (Map f list)
+type Fn list result = Foldr (->) result (Map W list)
 
--- | @'Fn'@ is not injective, but @'Fun'@ is, which is necessary for type decidability.
-newtype Fun (f :: k -> *) (list :: [k]) (result :: *) = Fun { getFun :: Fn f list result }
+newtype Fun (list :: [Nat]) (result :: *) = Fun { getFun :: Fn list result }
 
 newtype Ws (list :: [Nat]) = Ws { getWs :: W (Sum list) }
 
-class Arity (list :: [k]) where
-    accum :: (forall x xs. fs (x ': xs) -> f x -> fs xs) -> (fs '[] -> result) -> fs list -> Fun f list result
-    apply :: (forall x xs. fs (x ': xs) -> (f x, fs xs)) -> fs list -> Fun f list result -> result
+wuncons :: ( BothKnown n
+         , BothKnown (Sum ns)
+         , BothKnown (n + Sum ns)
+         ) => Ws (n ': ns) -> (W n, Ws ns)
+wuncons = fmap Ws . split . getWs
 
-instance Arity '[] where
-    accum f g t = Fun (g t)
-    apply f t h = getFun h
+wcons :: ( BothKnown n
+         , BothKnown (Sum ns)
+         , BothKnown (n + Sum ns)
+         ) => W n ->  Ws ns -> Ws (n ': ns)
+wcons n ns = Ws $ n >+< getWs ns
 
-instance Arity xs => Arity (x ': xs) where
-    accum f g t = Fun $ \a -> getFun (accum f g (f t a))
-    apply f t h = case f t of (a, u) -> apply f u (Fun (getFun h a))
+class Church (list :: [Nat]) where
+    -- accum :: (forall x xs. Ws (x ': xs) -> W x -> Ws xs) -> (Ws '[] -> result) -> Ws list -> Fun list result
+    inspect :: Ws list -> Fun list result -> result
 
-type family AllSatisfy (c :: k -> Constraint) (list :: [k]) :: Constraint where
-    AllSatisfy c '[] = ()
-    AllSatisfy c (x ': xs) = (c x, AllSatisfy c xs)
+instance Church '[] where
+    -- accum f g t = Fun (g t)
+    inspect t h = getFun h
 
-class Vector (c :: k -> Constraint) (f :: k -> *) (fs :: [k] -> *) where
-    hcons :: (c x, AllSatisfy c xs) => f x -> fs xs -> fs (x ': xs)
-    construct :: Arity list => Fun f list (fs list)
-    inspect :: Arity list => fs list -> Fun f list result -> result
+instance (BothKnown x, Church xs) => Church (x ': xs) where
+    -- accum f g t = Fun $ \a -> getFun (accum f g (f t a))
+    inspect t h = case wuncons t of (a, u) -> inspect u (Fun (getFun h a))
 
-instance Vector KnownNat W Ws where
-    hcons x (Ws xs) = Ws (x >+< xs)
+-- class Arity (list :: [Nat]) where
+--     accum :: (forall x xs. Ws (x ': xs) -> W x -> Ws xs) -> (Ws '[] -> result) -> Ws list -> Fun list result
+--     apply :: (forall x xs. Ws (x ': xs) -> (W x, Ws xs)) -> Ws list -> Fun list result -> result
+
+-- instance Arity '[] where
+--     accum f g t = Fun (g t)
+--     apply f t h = getFun h
+
+-- instance Arity xs => Arity (x ': xs) where
+--     accum f g t = Fun $ \a -> getFun (accum f g (f t a))
+--     apply f t h = case f t of (a, u) -> apply f u (Fun (getFun h a))
+
+-- type family AllSatisfy (c :: k -> Constraint) (list :: [k]) :: Constraint where
+--     AllSatisfy c '[] = ()
+--     AllSatisfy c (x ': xs) = (c x, AllSatisfy c xs)
+
+-- class Vector (c :: k -> Constraint) (f :: k -> *) (fs :: [k] -> *) where
+--     hcons :: (c x, AllSatisfy c xs) => f x -> fs xs -> fs (x ': xs)
+--     construct :: Arity list => Fun f list (fs list)
+--     inspect :: Arity list => fs list -> Fun f list result -> result
+
+-- instance Vector KnownNat W Ws where
+--     hcons x (Ws xs) = Ws (x >+< xs)
 
 -- | Class for nonempty type-level lists of @'Nat'@'s.
 -- This is the core of the heterogeneous-church-encoded-vector-like interface.
