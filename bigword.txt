@@ -170,6 +170,15 @@ data W (n :: Nat)
 --   </pre>
 split :: Triplet m n o => W o -> (W m, W n)
 
+-- | Synonym for readability
+type BothKnown n = (KnownNat n, KnownNat (2 ^ n))
+
+-- | Synonym for readability
+type Triplet m n o = (BothKnown m, BothKnown n, BothKnown o, (m + n) ~ o)
+
+-- | Convenience constraint synonym. Tuple instances of <tt><a>ToW</a></tt>
+--   and <tt><a>FromW</a></tt> would be a lot uglier without it.
+
 -- | Provides a way to convert from fixed-bit types to the <tt><a>W</a>
 --   n</tt> type.
 class ToW n a | a -> n
@@ -179,15 +188,6 @@ toW :: ToW n a => a -> W n
 --   fixed-bit types.
 class FromW n a | a -> n
 fromW :: FromW n a => W n -> a
-
--- | Convenience constraint synonym. Tuple instances of <tt><a>ToW</a></tt>
---   and <tt><a>FromW</a></tt> would be a lot uglier without it.
-
--- | Synonym for readability
-type BothKnown n = (KnownNat n, KnownNat (2 ^ n))
-
--- | Synonym for readability
-type Triplet m n o = (BothKnown m, BothKnown n, BothKnown o, (m + n) ~ o)
 
 
 -- | Useful functions for working with <tt><a>W</a> n</tt>'s.
